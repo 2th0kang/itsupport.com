@@ -548,6 +548,9 @@ tbody tr.clickable-row:hover {
     
     .main-content {
         padding: 20px;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
     }
     
     .kpi-grid {
@@ -565,9 +568,30 @@ tbody tr.clickable-row:hover {
         gap: 20px;
     }
     
-    /* 테이블 데이터 짤림 방지 (가로 스크롤 활성화 시 필수) */
+    /* 화면 밖으로 튀어나가는 현상 방지 제한 */
+    .card, .report-wrapper {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden; /* 요소 밖으로 삐져나와서 잘리는 현상 방지 */
+    }
+
+    /* 테이블 데이터 짤림 방지 및 스와이프 기능 확장 */
     th, td {
         white-space: nowrap;
+    }
+    
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .report-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     /* 모달 모바일 대응 */

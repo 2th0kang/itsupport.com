@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT 전산 문의 통합 시스템 (관리자용)</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 사이드바 네비게이션 -->
+    <nav class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-desktop"></i>
+            <h2>IT Support</h2>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" data-target="page-dashboard" class="active"><i class="fa-solid fa-chart-pie"></i> 처리 현황</a></li>
+            <li><a href="#" data-target="page-report"><i class="fa-solid fa-file-invoice"></i> 실적 보고서</a></li>
+        </ul>
+
+    </nav>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="main-content">
+
+        <!-- 1. 처리 현황 대시보드 (Support1.md, Support2.md) -->
+        <section id="page-dashboard" class="page active">
+            <header>
+                <h1>전산 문의 처리 대시보드</h1>
+                <p>IT 부서의 효율적인 업무 관리를 위한 실시간 현황</p>
+            </header>
+            
+            <div class="kpi-grid">
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('all')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 전체 목록 보기">
+                    <div class="icon bg-blue"><i class="fa-solid fa-inbox"></i></div>
+                    <div class="info">
+                        <h3>전체 접수</h3>
+                        <p id="kpiTotal">0</p>
+                    </div>
+                </div>
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('in-progress')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 진행 중인 목록 보기">
+                    <div class="icon bg-yellow"><i class="fa-solid fa-spinner"></i></div>
+                    <div class="info">
+                        <h3>진행 중(접수, 처리중, 보류)</h3>
+                        <p id="kpiInProgress">0</p>
+                    </div>
+                </div>
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('completed')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 완료된 목록 보기">
+                    <div class="icon bg-green"><i class="fa-solid fa-check"></i></div>
+                    <div class="info">
+                        <h3>처리 완료</h3>
+                        <p id="kpiCompleted">0</p>
+                    </div>
+                </div>
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('rejected')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 반려된 목록 보기">
+                    <div class="icon bg-red"><i class="fa-solid fa-xmark"></i></div>
+                    <div class="info">
+                        <h3>반려</h3>
+                        <p id="kpiRejected">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 대시보드 목록 컨테이너 -->
+            <div class="card list-card">
+                <div class="card-header">
+                    <h2>실시간 접수 목록 (Request List)</h2>
+                    <button id="btnClearData" class="btn-danger"><i class="fa-solid fa-trash"></i> 전체 초기화</button>
+                </div>
+                <div class="table-responsive">
+                    <table id="requestTable">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>이름</th>
+                                <th>소속 팀</th>
+                                <th>구분</th>
+                                <th>상태 관리</th>
+                                <th>삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 자바스크립트로 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 실적 보고서 (Report.md) -->
+        <section id="page-report" class="page">
+            <header>
+                <div class="report-header">
+                    <h1>[2026년 04월] IT 전산 문의 처리 실적 보고서</h1>
+                    <button class="btn-print" onclick="window.print()"><i class="fa-solid fa-print"></i> 인쇄</button>
+                </div>
+                <p>시스템 데이터를 기반으로 자동 생성된 실적 보고서 양식입니다.</p>
+            </header>
+
+            <div class="report-wrapper">
+                <div class="report-section">
+                    <h2>1. 종합 처리 현황</h2>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>구분</th>
+                                <th>접수 건수</th>
+                                <th>완료</th>
+                                <th>진행 중(접수, 처리중, 보류)</th>
+                                <th>반려</th>
+                                <th>처리율(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>결과 요약</strong></td>
+                                <td id="repTotal">0</td>
+                                <td id="repCompleted">0</td>
+                                <td id="repInProgress">0</td>
+                                <td id="repRejected">0</td>
+                                <td id="repRate" class="color-primary highlight-rate">0.0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="report-two-col">
+                    <div class="report-section">
+                        <h2>2. 카테고리별 세부 실적</h2>
+                        <ul class="stats-list" id="repCategories">
+                            <!-- JS 렌더링 -->
+                        </ul>
+                    </div>
+
+                    <div class="report-section">
+                        <h2>3. 팀별 요청 순위 (Top 3)</h2>
+                        <ol class="rank-list" id="repTeams">
+                            <!-- JS 렌더링 -->
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="report-section">
+                    <h2>4. 향후 조치 계획 및 의견</h2>
+                    <div class="note-box" id="reportNoteBox" contenteditable="true" spellcheck="false" title="클릭하여 내용을 수정할 수 있습니다">
+                        <p>💡 <strong>인프라 개선:</strong> 시스템 오류 비중이 높은 경우 서버 안정화 및 정기 점검이 필요합니다.</p>
+                        <p>💡 <strong>재고 관리:</strong> 소모품 신청이 잦은 품목은 적정 재고를 반드시 미리 확보할 것을 권장합니다.</p>
+                    </div>
+                </div>
+
+                <div class="report-footer">
+                    <div class="sign">
+                        <strong>보고자:</strong> 전산파트 이효은 (인) <br>
+                        <strong>일자:</strong> <span id="currentDate">2026-04-30</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- 상세 보기 모달 -->
+<div id="detailModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>문의 상세 정보</h2>
+            <button class="btn-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <!-- JS로 내용 렌더링 -->
+        </div>
+    </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

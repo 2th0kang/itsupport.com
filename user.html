@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT 전산 문의 통합 시스템 (일반 문의자용)</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 사이드바 네비게이션 -->
+    <nav class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-desktop"></i>
+            <h2>IT Support</h2>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" data-target="page-request" class="active"><i class="fa-solid fa-pen-to-square"></i> 문의 접수</a></li>
+            <li><a href="#" data-target="page-dashboard"><i class="fa-solid fa-chart-pie"></i> 처리 현황</a></li>
+        </ul>
+
+    </nav>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="main-content">
+
+        <!-- 1. 문의 접수 페이지 (Request.md) -->
+        <section id="page-request" class="page active">
+            <header>
+                <h1>전산 문의 접수</h1>
+                <p>전산 관련 도움이 필요하신 내용을 입력해 주세요.</p>
+            </header>
+            <div class="card request-form-card">
+                <form id="requestForm">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-user"></i> 1. 요청자 정보</label>
+                        <div class="input-row">
+                            <div class="input-col">
+                                <span class="sub-label">이름</span>
+                                <input type="text" id="reqName" placeholder="예: 홍길동" required>
+                            </div>
+                            <div class="input-col">
+                                <span class="sub-label">소속 팀</span>
+                                <select id="reqTeam" required>
+                                    <option value="" disabled selected>선택하세요</option>
+                                    <option value="인사총무팀">인사총무팀</option>
+                                    <option value="경영기획팀">경영기획팀</option>
+                                    <option value="신규사업팀">신규사업팀</option>
+                                    <option value="글로벌구매그룹">글로벌구매그룹</option>
+                                    <option value="영업전략팀">영업전략팀</option>
+                                    <option value="기술혁신팀">기술혁신팀</option>
+                                    <option value="기술연구소">기술연구소</option>
+                                    <option value="글로벌제조팀">글로벌제조팀</option>
+                                    <option value="글로벌CS그룹">글로벌CS그룹</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-folder"></i> 2. 문의 분류</label>
+                        <div class="input-row">
+                            <div class="input-col">
+                                <span class="sub-label">카테고리</span>
+                                <select id="reqCategory" required>
+                                    <option value="" disabled selected>선택하세요</option>
+                                    <option value="고장/오류">고장/오류</option>
+                                    <option value="소모품 필요">소모품 필요</option>
+                                    <option value="프로그램 설치">프로그램 설치</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-file-pen"></i> 3. 상세 내용</label>
+                        <textarea id="reqDesc" rows="5" placeholder="발생 현상 및 요청 사항을 자세히 적어주세요." required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit"><i class="fa-solid fa-paper-plane"></i> 문의 등록하기</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- 2. 처리 현황 대시보드 (Support1.md, Support2.md) -->
+        <section id="page-dashboard" class="page">
+            <header>
+                <h1>전산 문의 처리 대시보드</h1>
+                <p>IT 부서에 접수된 전체 문의 현황입니다.</p>
+            </header>
+            
+            <div class="kpi-grid">
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('all')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 전체 목록 보기">
+                    <div class="icon bg-blue"><i class="fa-solid fa-inbox"></i></div>
+                    <div class="info">
+                        <h3>전체 접수</h3>
+                        <p id="kpiTotal">0</p>
+                    </div>
+                </div>
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('in-progress')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 진행 중인 목록 보기">
+                    <div class="icon bg-yellow"><i class="fa-solid fa-spinner"></i></div>
+                    <div class="info">
+                        <h3>진행 중(접수, 처리중, 보류)</h3>
+                        <p id="kpiInProgress">0</p>
+                    </div>
+                </div>
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('completed')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 완료된 목록 보기">
+                    <div class="icon bg-green"><i class="fa-solid fa-check"></i></div>
+                    <div class="info">
+                        <h3>처리 완료</h3>
+                        <p id="kpiCompleted">0</p>
+                    </div>
+                </div>
+                <div class="kpi-card" style="cursor: pointer; transition: transform 0.2s;" onclick="filterTable('rejected')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'" title="클릭하여 반려된 목록 보기">
+                    <div class="icon bg-red"><i class="fa-solid fa-xmark"></i></div>
+                    <div class="info">
+                        <h3>반려</h3>
+                        <p id="kpiRejected">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 대시보드 목록 컨테이너 -->
+            <div class="card list-card">
+                <div class="card-header">
+                    <h2>실시간 접수 목록 (Request List)</h2>
+                </div>
+                <div class="table-responsive">
+                    <table id="requestTable">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>이름</th>
+                                <th>소속 팀</th>
+                                <th>구분</th>
+                                <th>진행 상태</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 자바스크립트로 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- 상세 보기 모달 -->
+<div id="detailModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>문의 상세 정보</h2>
+            <button class="btn-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <!-- JS로 내용 렌더링 -->
+        </div>
+    </div>
+</div>
+
+<script src="user.js"></script>
+</body>
+</html>

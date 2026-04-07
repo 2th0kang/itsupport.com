@@ -493,3 +493,86 @@ tbody tr.clickable-row:hover {
     .report-wrapper { box-shadow: none; border: none; padding: 0; }
     .btn-print { display: none;}
 }
+
+/* ====================================================
+   반응형 (Responsive) 스타일 
+   ==================================================== */
+
+/* 태블릿 (1024px 이하) */
+@media screen and (max-width: 1024px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .main-content {
+        padding: 30px;
+    }
+    .report-two-col {
+        gap: 20px;
+    }
+}
+
+/* 모바일 (768px 이하) */
+@media screen and (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 16px;
+    }
+    
+    .sidebar .logo {
+        margin-bottom: 16px;
+    }
+    
+    .nav-links {
+        flex-direction: row;
+        gap: 12px;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 8px; /* 스크롤바 공간 확보 */
+    }
+    
+    .nav-links li a {
+        padding: 10px 14px;
+        font-size: 0.95rem;
+    }
+    
+    .user-info {
+        padding-top: 16px;
+        justify-content: flex-start;
+    }
+    
+    .main-content {
+        padding: 20px;
+    }
+    
+    .kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .input-row {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .report-two-col {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* 테이블 데이터 짤림 방지 (가로 스크롤 활성화 시 필수) */
+    th, td {
+        white-space: nowrap;
+    }
+    
+    /* 모달 모바일 대응 */
+    .modal-content {
+        width: 95%;
+        margin: 0 auto;
+    }
+}

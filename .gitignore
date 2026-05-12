@@ -1,1 +1,6 @@
 *.md
+node_modules/
+data.json
+package*.json
+server.js
+GoogleAppsScript.gs

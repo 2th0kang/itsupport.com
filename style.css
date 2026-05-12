@@ -429,6 +429,9 @@ tr:last-child td { border-bottom: none; }
     background-color: var(--bg-card);
     width: 500px;
     max-width: 90%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     transform: translateY(20px);
@@ -453,6 +456,7 @@ tr:last-child td { border-bottom: none; }
 .btn-close:hover { color: var(--danger); }
 .modal-body {
     padding: 24px;
+    overflow-y: auto;
 }
 .detail-row {
     display: flex;
@@ -463,17 +467,75 @@ tr:last-child td { border-bottom: none; }
 .detail-row:last-child { border-bottom: none; }
 .detail-label { width: 120px; font-weight: 600; color: var(--text-muted); }
 .detail-value { flex: 1; white-space: pre-wrap; line-height: 1.5; color: var(--text-main); }
-.detail-progress {
+/* 진행 단계 인디케이터 */
+.step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    background-color: var(--border-color);
-    border-radius: 10px;
-    height: 8px;
-    margin-top: 6px;
-    overflow: hidden;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    position: relative;
 }
-.detail-progress-bar {
-    height: 100%;
+.step-indicator::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 22px;
+    right: 22px;
+    height: 4px;
+    background-color: var(--border-color);
+    z-index: 1;
+}
+.step-indicator .step {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+}
+.step-indicator .step .step-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: var(--bg-card);
+    border: 4px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+.step-indicator .step.active .step-icon {
+    background-color: white;
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.step-indicator .step.active-warning .step-icon {
+    border-color: var(--warning);
+    color: var(--warning);
+}
+.step-indicator .step.active-success .step-icon {
+    border-color: var(--secondary);
+    color: var(--secondary);
+}
+.step-indicator .step.active-danger .step-icon {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.step-indicator .step.active .step-text {
+    color: var(--text-main);
+    font-weight: 600;
+}
+.step-line {
+    position: absolute;
+    top: 20px;
+    left: 22px;
+    height: 4px;
     background-color: var(--primary);
+    z-index: 1;
     transition: width 0.5s ease;
 }
 
@@ -492,6 +554,58 @@ tbody tr.clickable-row:hover {
     .main-content { padding: 0; }
     .report-wrapper { box-shadow: none; border: none; padding: 0; }
     .btn-print { display: none;}
+}
+
+/* 로그인 페이지 스타일 */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    min-height: 500px;
+}
+.login-card {
+    width: 400px;
+    max-width: 100%;
+    text-align: center;
+}
+.login-icon {
+    font-size: 3.5rem;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+.login-card .form-group {
+    text-align: left;
+}
+/* 모달 관련 속성 뒤에 로딩 속성 추가 */
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: rgba(255,255,255,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--transition);
+}
+.loading-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid var(--border-color);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* ====================================================
@@ -599,4 +713,71 @@ tbody tr.clickable-row:hover {
         width: 95%;
         margin: 0 auto;
     }
+}
+
+/* ====================================================
+   이미지 첨부 및 미리보기 관련 스타일
+   ==================================================== */
+.btn-img-attach {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background-color: var(--bg-main);
+    border: 1px dashed var(--border-color);
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition);
+}
+.btn-img-attach:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background-color: var(--primary-light);
+}
+
+.image-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+.preview-item {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+.preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.preview-item .btn-remove-img {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.preview-item .btn-remove-img:hover {
+    background: var(--danger);
+}
+.detail-images img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
 }

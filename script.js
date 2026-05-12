@@ -1,7 +1,7 @@
 // ====================================================
 // 외부 데이터베이스 연동 완료 (JSONBlob 사용 - GitHub Pages 전용)
 // ====================================================
-const GOOGLE_SCRIPT_URL = 'https://jsonblob.com/api/jsonBlob/019e1982-cd1b-734b-8fcf-5e36fcb029ac'; 
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyYz7UFjZrZ-UkEVSR-ubT-SkUJu2v4vXB0kbGmCfKbCYojbRyOLDTTMntTBYn4eC3/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 권한 상태 관리
@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 로딩 오버레이 제어
     const loadingOverlay = document.getElementById('loadingOverlay');
-    function showLoading() { if(loadingOverlay) loadingOverlay.classList.add('show'); }
-    function hideLoading() { if(loadingOverlay) loadingOverlay.classList.remove('show'); }
+    function showLoading() { if (loadingOverlay) loadingOverlay.classList.add('show'); }
+    function hideLoading() { if (loadingOverlay) loadingOverlay.classList.remove('show'); }
 
     // (GET) 구글 시트에서 데이터 불러오기
     async function loadData() {
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading();
         try {
             const response = await fetch(GOOGLE_SCRIPT_URL);
-            if(response.ok) {
+            if (response.ok) {
                 const data = await response.json();
                 requests = data || [];
                 renderTable(); // 데이터 가져온 후 테이블 다시 그리기
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // (PUT) 외부 DB에 데이터 쓰기
+    // (POST) 외부 DB에 데이터 쓰기
     async function saveDataAsync() {
         if (!GOOGLE_SCRIPT_URL) {
             // 서버 대신 브라우저 로컬 스토리지에 저장하여 원활한 UI 테스트 지원
@@ -52,14 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading();
         try {
             const response = await fetch(GOOGLE_SCRIPT_URL, {
-                method: 'PUT',
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    // 구글 앱스 스크립트 CORS 이슈 방지를 위해 text/plain 사용
+                    'Content-Type': 'text/plain;charset=utf-8'
                 },
                 body: JSON.stringify(requests)
             });
-            if(response.ok) {
+            if (response.ok) {
                 updateDashboardKPI(); // 성공하면 KPI 수치 갱신
                 return true;
             } else {
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemLogin = document.getElementById('nav-item-login');
     const navItemLogout = document.getElementById('nav-item-logout');
     const navItemRequest = document.getElementById('nav-item-request');
-    
+
     // 네비게이션 업데이트
     function updateNavVisibility() {
         if (isAdmin) {
@@ -112,15 +112,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             pages.forEach(page => page.classList.remove('active'));
             document.getElementById(targetId).classList.add('active');
-            
+
             if (targetId === 'page-report') updateReport();
             if (targetId === 'page-provision') renderProvisionTable();
-            
+
             // 처리 현황에 들어갈 때마다 혹시 다른 PC에서 변경된게 있는지 최신 데이터 다시 받아옴
             if (targetId === 'page-dashboard' || targetId === 'page-report' || targetId === 'page-provision') {
                 loadData();
             }
-            
+
             localStorage.setItem('activeTab', targetId);
         });
     });
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isAdmin = true;
                 localStorage.setItem('itAdminAuth', 'true');
                 alert('관리자로 로그인되었습니다.');
-                
+
                 updateNavVisibility();
                 renderTable();
                 document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isAdmin = false;
                 localStorage.removeItem('itAdminAuth');
                 localStorage.setItem('activeTab', 'page-request');
-                
+
                 alert('로그아웃 되었습니다.');
                 updateNavVisibility();
                 renderTable();
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     dateEles.forEach(el => el.textContent = todayStr);
-    
+
     const yearMonthStr = `${today.getFullYear()}년 ${String(today.getMonth() + 1).padStart(2, '0')}월`;
     const reportTitle = document.getElementById('reportTitleYearMonth');
     if (reportTitle) reportTitle.textContent = `[${yearMonthStr}] IT 전산 문의 처리 실적 보고서`;
@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const requestForm = document.getElementById('requestForm');
     const requestTableBody = document.querySelector('#requestTable tbody');
-    
+
     const elTotal = document.getElementById('kpiTotal');
     const elInProgress = document.getElementById('kpiInProgress');
     const elCompleted = document.getElementById('kpiCompleted');
@@ -218,9 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const img = new Image();
-            img.onload = function() {
+            img.onload = function () {
                 const canvas = document.createElement('canvas');
                 const MAX_WIDTH = 1000;
                 let width = img.width;
@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                
+
                 attachedImages.push(dataUrl);
                 renderImagePreviews();
             };
@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.renderImagePreviews = function() {
+    window.renderImagePreviews = function () {
         if (!imagePreviewContainer) return;
         imagePreviewContainer.innerHTML = '';
         attachedImages.forEach((dataUrl, index) => {
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (requestForm) {
         requestForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const name = document.getElementById('reqName').value;
             const team = document.getElementById('reqTeam').value;
             const emailId = document.getElementById('reqEmailId').value;
@@ -319,8 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             requests.push(newRequest);
             const success = await saveDataAsync(); // 구글 서버에 전송 대기
-            
-            if(success) {
+
+            if (success) {
                 renderTable();
                 alert('문의가 성공적으로 접수되었습니다.');
                 requestForm.reset();
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnClearData = document.getElementById('btnClearData');
     if (btnClearData) {
         btnClearData.addEventListener('click', async () => {
-            if(confirm('정말 모든 접수 내역을 스프레드시트에서 삭제하시겠습니까? (복구 불가)')) {
+            if (confirm('정말 모든 접수 내역을 스프레드시트에서 삭제하시겠습니까? (복구 불가)')) {
                 requests = [];
                 await saveDataAsync();
                 renderTable();
@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 지급/설치 내역 전용 필터 이벤트 리스너
     const searchProvisionEl = document.getElementById('searchProvision');
     const filterProvisionCategoryEl = document.getElementById('filterProvisionCategory');
-    
+
     if (searchProvisionEl) searchProvisionEl.addEventListener('input', () => { if (window.renderProvisionTable) window.renderProvisionTable(); });
     if (filterProvisionCategoryEl) filterProvisionCategoryEl.addEventListener('change', () => { if (window.renderProvisionTable) window.renderProvisionTable(); });
 
@@ -372,14 +372,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemsPerPage = 10;
     let currentFilter = 'all';
 
-    window.filterTable = function(filter) {
+    window.filterTable = function (filter) {
         currentFilter = filter;
-        currentPage = 1; 
+        currentPage = 1;
         renderTable();
-        
+
         const cards = document.querySelectorAll('.kpi-card');
         const activeCardMap = { 'all': 0, 'in-progress': 1, 'completed': 2, 'rejected': 3 };
-        
+
         cards.forEach((card, index) => {
             if (index === activeCardMap[filter]) {
                 card.style.border = '2px solid var(--primary)';
@@ -393,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    window.changePage = function(page) {
+    window.changePage = function (page) {
         currentPage = page;
         renderTable();
     };
@@ -408,11 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
             paginationContainer.style.alignItems = 'center';
             paginationContainer.style.gap = '8px';
             paginationContainer.style.padding = '20px 0 10px 0';
-            
+
             const tableResponsive = document.querySelector('.table-responsive');
             tableResponsive.parentNode.appendChild(paginationContainer);
         }
-        
+
         if (totalPages <= 1) {
             paginationContainer.innerHTML = '';
             return;
@@ -425,22 +425,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const prevStyle = currentPage === 1 ? disabledStyle : btnStyle;
         html += `<button style="${prevStyle}" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})" title="이전 페이지"><i class="fa-solid fa-chevron-left"></i></button>`;
-        
+
         for (let i = 1; i <= totalPages; i++) {
             const currentStyle = i === currentPage ? activeStyle : btnStyle;
             html += `<button style="${currentStyle}" onclick="changePage(${i})">${i}</button>`;
         }
-        
+
         const nextStyle = currentPage === totalPages ? disabledStyle : btnStyle;
         html += `<button style="${nextStyle}" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})" title="다음 페이지"><i class="fa-solid fa-chevron-right"></i></button>`;
-        
+
         paginationContainer.innerHTML = html;
     }
 
     // 테이블 렌더링
-    window.renderTable = function() {
+    window.renderTable = function () {
         requestTableBody.innerHTML = '';
-        
+
         const thStatusCol = document.getElementById('thStatusCol');
         const thDeleteCol = document.getElementById('thDeleteCol');
         if (isAdmin) {
@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             thDeleteCol.style.display = 'none';
             thStatusCol.textContent = '진행 상태';
         }
-        
+
         let filteredRequests = [...requests];
         if (currentFilter === 'in-progress') {
             filteredRequests = filteredRequests.filter(r => ['접수', '처리중', '보류'].includes(r.status));
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalPages = Math.ceil(sortedRequests.length / itemsPerPage) || 1;
         if (currentPage > totalPages) currentPage = totalPages;
         if (currentPage < 1) currentPage = 1;
-        
+
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const currentData = sortedRequests.slice(startIndex, endIndex);
@@ -507,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
                 openDetailModal(req.id);
             };
-            
+
             let statusHtml = '';
             let deleteHtml = '';
 
@@ -533,9 +533,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${req.status === '반려' ? '❌ 반려' : ''}
                     </span>
                 `;
-                deleteHtml = `<td style="display:none;"></td>`; 
+                deleteHtml = `<td style="display:none;"></td>`;
             }
-            
+
             tr.innerHTML = `
                 <td>${req.id}</td>
                 <td>${req.name}</td>
@@ -547,25 +547,25 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             requestTableBody.appendChild(tr);
         });
-        
+
         updateDashboardKPI();
-        
+
         if (isAdmin) {
             updateReport();
         }
-        
+
         renderPagination(totalPages);
     };
 
     // 지급/설치 내역 렌더링
-    window.renderProvisionTable = function() {
+    window.renderProvisionTable = function () {
         const tbody = document.querySelector('#provisionTable tbody');
         const countSpan = document.getElementById('provisionCount');
         if (!tbody) return;
         tbody.innerHTML = '';
-        
-        let provisionRequests = requests.filter(r => 
-            r.status === '완료' && 
+
+        let provisionRequests = requests.filter(r =>
+            r.status === '완료' &&
             (r.category === '프로그램 설치' || r.category === '소모품 필요')
         );
 
@@ -580,15 +580,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterCategory !== 'all') {
             provisionRequests = provisionRequests.filter(r => r.category === filterCategory);
         }
-        
+
         // 최신 일자 순으로 정렬
         provisionRequests.sort((a, b) => new Date(b.date) - new Date(a.date));
-        
+
         // 건수 업데이트
         if (countSpan) {
             countSpan.textContent = `총 ${provisionRequests.length}건`;
         }
-        
+
         if (provisionRequests.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">검색 조건에 맞는 내역이 없습니다.</td></tr>`;
             return;
@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
         provisionRequests.forEach(req => {
             const tr = document.createElement('tr');
             const dateStr = new Date(req.date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-            
+
             tr.innerHTML = `
                 <td>${dateStr}</td>
                 <td>${req.name}</td>
@@ -658,9 +658,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay show';
         overlay.style.zIndex = '9999';
-        
+
         let optionsHtml = options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
-        
+
         overlay.innerHTML = `
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
@@ -710,24 +710,24 @@ document.addEventListener('DOMContentLoaded', () => {
             let reason = sel.value;
             if (reason === '기타') reason = inp.value || '기타';
             req.completeReason = reason;
-            
+
             const resolution = overlay.querySelector('#progResolution').value.trim();
             if (resolution) req.resolution = resolution;
             else delete req.resolution;
-            
+
             req.status = '완료';
             await saveDataAsync(); // API로 서버 동기화 완료 대기
             selectEle.className = `status-select status-완료`;
-            if(isAdmin) updateReport();
+            if (isAdmin) updateReport();
             document.body.removeChild(overlay);
         };
     }
 
-    window.changeStatus = async function(id, selectEle) {
-        if(!isAdmin) return; // 보안
+    window.changeStatus = async function (id, selectEle) {
+        if (!isAdmin) return; // 보안
         const newStatus = selectEle.value;
         const req = requests.find(r => r.id === id);
-        if(req) {
+        if (req) {
             if (newStatus === '반려') {
                 const reason = prompt('반려 사유를 입력해주세요:');
                 if (reason === null) {
@@ -742,13 +742,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newStatus === '완료') {
                 if (CAETGORY_OPTIONS[req.category]) {
                     showCompleteModal(
-                        req, 
-                        selectEle, 
-                        `${req.category} 내역`, 
-                        `해당 내역을 선택해주세요:`, 
+                        req,
+                        selectEle,
+                        `${req.category} 내역`,
+                        `해당 내역을 선택해주세요:`,
                         CAETGORY_OPTIONS[req.category]
                     );
-                    return; 
+                    return;
                 } else {
                     const reason = prompt(`${req.category} 처리 내역(사유)을 입력하세요:`);
                     if (reason === null) {
@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     req.completeReason = reason || '사유 미입력';
-                    
+
                     const resolution = prompt(`어떻게 해결했는지 과정을 간략히 적어주세요 (선택사항):`);
                     if (resolution !== null && resolution.trim() !== '') {
                         req.resolution = resolution.trim();
@@ -771,14 +771,14 @@ document.addEventListener('DOMContentLoaded', () => {
             req.status = newStatus;
             await saveDataAsync();
             selectEle.className = `status-select status-${newStatus}`;
-            
-            if(isAdmin) updateReport();
+
+            if (isAdmin) updateReport();
         }
     }
 
-    window.deleteReq = async function(id) {
-        if(!isAdmin) return; 
-        if(confirm('해당 문의 내역을 삭제할까요?')) {
+    window.deleteReq = async function (id) {
+        if (!isAdmin) return;
+        if (confirm('해당 문의 내역을 삭제할까요?')) {
             requests = requests.filter(r => r.id !== id);
             await saveDataAsync();
             renderTable();
@@ -791,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const completed = requests.filter(r => r.status === '완료').length;
         const inProgress = requests.filter(r => ['접수', '처리중', '보류'].includes(r.status)).length;
         const rejected = requests.filter(r => r.status === '반려').length;
-        
+
         const rate = total === 0 ? 0 : ((completed / total) * 100).toFixed(1);
 
         document.getElementById('repTotal').textContent = total + "건";
@@ -804,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
             acc[curr.category] = (acc[curr.category] || 0) + 1;
             return acc;
         }, {});
-        
+
         const catsUl = document.getElementById('repCategories');
         if (catsUl) {
             catsUl.innerHTML = `
@@ -820,9 +820,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }, {});
 
         const sortedTeams = Object.entries(teamCounts)
-                                .sort((a,b) => b[1] - a[1])
-                                .slice(0, 3);
-        
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+
         const teamsOl = document.getElementById('repTeams');
         if (teamsOl) {
             if (sortedTeams.length > 0) {
@@ -837,18 +837,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalBody = document.getElementById('modalBody');
     const btnCloseModal = document.getElementById('btnCloseModal');
 
-    window.showCategoryRank = function(catName) {
+    window.showCategoryRank = function (catName) {
         if (!isAdmin) return;
         const catReqs = requests.filter(r => r.category === catName && r.status === '완료' && r.completeReason);
-        
+
         const reasonCounts = catReqs.reduce((acc, curr) => {
             acc[curr.completeReason] = (acc[curr.completeReason] || 0) + 1;
             return acc;
         }, {});
-        
+
         const sortedReasons = Object.entries(reasonCounts)
-                                    .sort((a, b) => b[1] - a[1]);
-                                    
+            .sort((a, b) => b[1] - a[1]);
+
         let htmlContent = `<ul style="list-style: none; padding: 0; margin-top: 10px;">`;
         if (sortedReasons.length === 0) {
             htmlContent += `<li>완료된 상세 처리 내역이 없습니다.</li>`;
@@ -861,23 +861,23 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         htmlContent += `</ul>`;
-        
+
         document.querySelector('#detailModal .modal-header h2').textContent = `📊 [${catName}] 상세 처리 내역 순위`;
         document.getElementById('modalBody').innerHTML = htmlContent;
         document.getElementById('detailModal').classList.add('show');
     };
 
-    window.showTeamRank = function(teamName) {
+    window.showTeamRank = function (teamName) {
         if (!isAdmin) return;
         const teamRequests = requests.filter(r => r.team === teamName);
         const personCounts = teamRequests.reduce((acc, curr) => {
             acc[curr.name] = (acc[curr.name] || 0) + 1;
             return acc;
         }, {});
-        
+
         const sortedPersons = Object.entries(personCounts)
-                                    .sort((a, b) => b[1] - a[1]);
-                                    
+            .sort((a, b) => b[1] - a[1]);
+
         let htmlContent = `<ul style="list-style: none; padding: 0; margin-top: 10px;">`;
         sortedPersons.forEach((p, idx) => {
             htmlContent += `<li style="padding: 10px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
@@ -886,16 +886,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </li>`;
         });
         htmlContent += `</ul>`;
-        
+
         document.querySelector('#detailModal .modal-header h2').textContent = `📊 [${teamName}] 요청자별 문의 순위`;
         document.getElementById('modalBody').innerHTML = htmlContent;
         document.getElementById('detailModal').classList.add('show');
     };
 
-    window.openDetailModal = function(id) {
+    window.openDetailModal = function (id) {
         document.querySelector('#detailModal .modal-header h2').textContent = `문의 상세 정보`;
         const req = requests.find(r => r.id === id);
-        if(!req) return;
+        if (!req) return;
 
         let progressWidth = '0%';
         let s1 = 'active', s2 = '', s3 = '';
@@ -995,7 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (modalOverlay) {
         modalOverlay.addEventListener('click', (e) => {
-            if(e.target === modalOverlay) {
+            if (e.target === modalOverlay) {
                 modalOverlay.classList.remove('show');
             }
         });

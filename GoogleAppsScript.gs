@@ -686,3 +686,11 @@ function doOptions(e) {
   return ContentService.createTextOutput("")
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+// 수동 실행 및 마이그레이션 권한 승인을 위한 진입점 함수
+function runInitialize() {
+  var ss = SpreadsheetApp.openById("1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos");
+  var sheets = getOrInitializeSheets(ss);
+  checkAndHashPlainPasswords(sheets);
+  Logger.log("성공적으로 초기화 및 마이그레이션이 완료되었습니다.");
+}

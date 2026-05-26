@@ -28,6 +28,7 @@
             <div style="flex-grow: 1;"></div>
             <li id="nav-item-login"><a href="#" data-target="page-login"><i class="fa-solid fa-right-to-bracket"></i> 관리자 로그인</a></li>
             <li id="nav-item-logout" style="display: none;"><a href="#" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</a></li>
+            <li id="nav-item-add-admin" style="display: none;"><a href="#" id="btnAddAdmin"><i class="fa-solid fa-user-plus"></i> 관리자 추가</a></li>
         </ul>
     </nav>
 
@@ -37,11 +38,12 @@
         <!-- 1. 문의 접수 페이지 -->
         <section id="page-request" class="page active">
             <header>
-                <h1>전산 문의 접수</h1>
-                <p>전산 관련 도움이 필요하신 내용을 입력해 주세요.</p>
+                <h1 id="pageRequestTitle">전산 문의 접수</h1>
+                <p id="pageRequestDesc">전산 관련 도움이 필요하신 내용을 입력해 주세요.</p>
             </header>
             <div class="card request-form-card">
                 <form id="requestForm">
+                    <input type="hidden" id="editReqId" value="">
                     <div class="form-group">
                         <label><i class="fa-solid fa-user"></i> 1. 요청자 정보</label>
                         <div class="input-row">
@@ -105,7 +107,13 @@
                         <div id="imagePreviewContainer" class="image-preview-container"></div>
                     </div>
 
-                    <button type="submit" class="btn-submit"><i class="fa-solid fa-paper-plane"></i> 문의 등록하기</button>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-lock"></i> 4. 비밀번호 (수정/삭제용)</label>
+                        <input type="password" id="reqPassword" placeholder="숫자 4자리 입력" maxlength="4" required style="max-width: 200px;">
+                    </div>
+
+                    <button type="submit" class="btn-submit" id="btnSubmitRequest"><i class="fa-solid fa-paper-plane"></i> 문의 등록하기</button>
+                    <button type="button" class="btn-submit" id="btnCancelEdit" style="display:none; background-color: var(--text-muted); margin-top: 10px;"><i class="fa-solid fa-xmark"></i> 수정 취소</button>
                 </form>
             </div>
         </section>
@@ -346,8 +354,7 @@
 <!-- 로딩 오버레이 -->
 <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner"></div>
-    <h3 style="color: var(--primary);">데이터와 통신 중입니다...</h3>
-    <p style="color: var(--text-muted); margin-top: 8px;">잠시만 기다려주세요.</p>
+    <h3 style="color: var(--primary); margin-top: 15px; font-weight: 500;">로딩 중...</h3>
 </div>
 
 <!-- 상세 보기 모달 -->
@@ -359,6 +366,48 @@
         </div>
         <div class="modal-body" id="modalBody">
             <!-- JS로 내용 렌더링 -->
+        </div>
+    </div>
+</div>
+
+<!-- 관리자 계정 추가 모달 -->
+<div id="adminRegModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2>새 관리자 추가</h2>
+            <button class="btn-close" id="btnCloseAdminRegModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="adminRegForm">
+                <div class="form-group">
+                    <label>새 관리자 아이디</label>
+                    <input type="text" id="newAdminId" required>
+                </div>
+                <div class="form-group">
+                    <label>새 관리자 비밀번호</label>
+                    <input type="password" id="newAdminPw" required>
+                </div>
+                <div class="form-group">
+                    <label>비밀번호 확인</label>
+                    <input type="password" id="newAdminPwConfirm" required>
+                </div>
+                <button type="submit" class="btn-submit">추가하기</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 비밀번호 확인 모달 -->
+<div id="passwordModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 300px;">
+        <div class="modal-header">
+            <h2 id="passwordModalTitle">권한 확인</h2>
+            <button class="btn-close" id="btnClosePasswordModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:15px; font-size:0.95rem; color:var(--text-muted);">등록 시 입력한 비밀번호 4자리를 입력해주세요.</p>
+            <input type="password" id="verifyPasswordInput" maxlength="4" style="width:100%; text-align:center; font-size:1.5rem; letter-spacing:5px; margin-bottom:15px;" required>
+            <button type="button" id="btnVerifyPassword" class="btn-submit">확인</button>
         </div>
     </div>
 </div>

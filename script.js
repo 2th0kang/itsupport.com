@@ -6,7 +6,8 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyYz7UFjZrZ-
 document.addEventListener('DOMContentLoaded', () => {
     // 권한 상태 관리
     let isAdmin = localStorage.getItem('itAdminAuth') === 'true';
-    let requests = []; // 구글 스프레드시트에서 가져올 데이터 배열
+    let requests = [];
+    let admins = []; // 구글 스프레드시트에서 가져올 관리자 데이터 배열
     let attachedImages = []; // 첨부된 이미지 데이터 배열 (Base64)
 
     // 로딩 오버레이 제어
@@ -20,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn('구글 스크립트 연동 해제 상태 - 로컬 데이터 모드로 동작합니다.');
             const localData = localStorage.getItem('localRequestsDB');
             if (localData) {
-                requests = JSON.parse(localData);
+                const parsed = JSON.parse(localData);
+                requests = parsed.requests || parsed || [];
+                admins = parsed.admins || [];
             }
             renderTable();
             return;
@@ -30,7 +33,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(GOOGLE_SCRIPT_URL);
             if (response.ok) {
                 const data = await response.json();
-                requests = data || [];
+                requests = data.requests || [];
+                admins = data.admins || [];
+                
+                // 마이그레이션: 기존 requests에 숨어있는 [ADMIN_ACCOUNT]를 admins로 이동
+                const legacyAdmins = requests.filter(r => r.category === '[ADMIN_ACCOUNT]');
+                if (legacyAdmins.length > 0) {
+                    requests = requests.filter(r => r.category !== '[ADMIN_ACCOUNT]');
+                    legacyAdmins.forEach(la => {
+                        admins.push({
+                            id: la.id || new Date().getTime(),
+                            name: la.name,
+                            password: la.password,
+                            date: la.date
+                        });
+                    });
+                    // 서버에 마이그레이션된 데이터 동기화
+                    fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ requests, admins })
+                    });
+                }
+
                 renderTable(); // 데이터 가져온 후 테이블 다시 그리기
             }
         } catch (error) {
@@ -45,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveDataAsync() {
         if (!GOOGLE_SCRIPT_URL) {
             // 서버 대신 브라우저 로컬 스토리지에 저장하여 원활한 UI 테스트 지원
-            localStorage.setItem('localRequestsDB', JSON.stringify(requests));
+            localStorage.setItem('localRequestsDB', JSON.stringify({ requests, admins }));
             updateDashboardKPI();
             return true;
         }
@@ -57,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 구글 앱스 스크립트 CORS 이슈 방지를 위해 text/plain 사용
                     'Content-Type': 'text/plain;charset=utf-8'
                 },
-                body: JSON.stringify(requests)
+                body: JSON.stringify({ requests, admins })
             });
             if (response.ok) {
                 updateDashboardKPI(); // 성공하면 KPI 수치 갱신
@@ -82,18 +107,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemLogin = document.getElementById('nav-item-login');
     const navItemLogout = document.getElementById('nav-item-logout');
     const navItemRequest = document.getElementById('nav-item-request');
+    const navItemAddAdmin = document.getElementById('nav-item-add-admin');
+    
 
     // 네비게이션 업데이트
     function updateNavVisibility() {
         if (isAdmin) {
             navItemReport.style.display = 'block';
             if (navItemProvision) navItemProvision.style.display = 'block';
+            if (navItemAddAdmin) navItemAddAdmin.style.display = 'block';
             navItemLogin.style.display = 'none';
             navItemLogout.style.display = 'block';
             if (navItemRequest) navItemRequest.style.display = 'none';
         } else {
             navItemReport.style.display = 'none';
             if (navItemProvision) navItemProvision.style.display = 'none';
+            if (navItemAddAdmin) navItemAddAdmin.style.display = 'none';
             navItemLogin.style.display = 'block';
             navItemLogout.style.display = 'none';
             if (navItemRequest) navItemRequest.style.display = 'block';
@@ -147,8 +176,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
+            let isValid = false;
             // "admin:1234" 에 해당하는 SHA-256 해시값 고정값 일치 여부 확인
             if (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
+                isValid = true;
+            } else {
+                const adminAccount = admins.find(a => a.name === id && a.password === hashHex);
+                if (adminAccount) isValid = true;
+            }
+
+            if (isValid) {
                 isAdmin = true;
                 localStorage.setItem('itAdminAuth', 'true');
                 alert('관리자로 로그인되었습니다.');
@@ -303,32 +340,69 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = document.getElementById('reqCategory').value;
             const title = document.getElementById('reqTitle').value;
             const desc = document.getElementById('reqDesc').value;
+            const password = document.getElementById('reqPassword') ? document.getElementById('reqPassword').value : '';
+            const editId = document.getElementById('editReqId') ? document.getElementById('editReqId').value : '';
 
-            const newRequest = {
-                id: generateId(),
-                name,
-                team,
-                email,
-                category,
-                title,
-                desc,
-                images: [...attachedImages],
-                status: '접수',
-                date: new Date().toISOString()
-            };
+            if (editId) {
+                const targetReq = requests.find(r => r.id == editId);
+                if (targetReq) {
+                    targetReq.name = name;
+                    targetReq.team = team;
+                    targetReq.email = email;
+                    targetReq.category = category;
+                    targetReq.title = title;
+                    targetReq.desc = desc;
+                    targetReq.images = [...attachedImages];
+                    targetReq.password = password;
+                }
+                const success = await saveDataAsync();
+                if (success) {
+                    renderTable();
+                    alert('문의 내용이 수정되었습니다.');
+                    cancelEditMode();
+                    document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+                }
+            } else {
+                const newRequest = {
+                    id: generateId(),
+                    name, team, email, category, title, desc,
+                    images: [...attachedImages], status: '접수', date: new Date().toISOString(), password
+                };
 
-            requests.push(newRequest);
-            const success = await saveDataAsync(); // 구글 서버에 전송 대기
+                requests.push(newRequest);
+                const success = await saveDataAsync(); // 구글 서버에 전송 대기
 
-            if (success) {
-                renderTable();
-                alert('문의가 성공적으로 접수되었습니다.');
-                requestForm.reset();
-                attachedImages = [];
-                renderImagePreviews();
-                document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+                if (success) {
+                    renderTable();
+                    alert('문의가 성공적으로 접수되었습니다.');
+                    requestForm.reset();
+                    attachedImages = [];
+                    renderImagePreviews();
+                    document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+                }
             }
         });
+    }
+
+    function cancelEditMode() {
+        if(requestForm) requestForm.reset();
+        const editReqId = document.getElementById('editReqId');
+        if(editReqId) editReqId.value = '';
+        attachedImages = [];
+        renderImagePreviews();
+        const btnSubmit = document.getElementById('btnSubmitRequest');
+        if(btnSubmit) btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane"></i> 문의 등록하기';
+        const btnCancel = document.getElementById('btnCancelEdit');
+        if(btnCancel) btnCancel.style.display = 'none';
+        const titleEl = document.getElementById('pageRequestTitle');
+        if(titleEl) titleEl.textContent = '전산 문의 접수';
+        const descEl = document.getElementById('pageRequestDesc');
+        if(descEl) descEl.textContent = '전산 관련 도움이 필요하신 내용을 입력해 주세요.';
+    }
+
+    const btnCancelEdit = document.getElementById('btnCancelEdit');
+    if (btnCancelEdit) {
+        btnCancelEdit.addEventListener('click', cancelEditMode);
     }
 
     function generateId() {
@@ -342,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnClearData) {
         btnClearData.addEventListener('click', async () => {
             if (confirm('정말 모든 접수 내역을 스프레드시트에서 삭제하시겠습니까? (복구 불가)')) {
-                requests = [];
+                requests = []; // 문의내역만 초기화, 관리자 계정은 유지
                 await saveDataAsync();
                 renderTable();
                 alert('초기화 되었습니다.');
@@ -453,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             thStatusCol.textContent = '진행 상태';
         }
 
-        let filteredRequests = [...requests];
+        let filteredRequests = requests;
         if (currentFilter === 'in-progress') {
             filteredRequests = filteredRequests.filter(r => ['접수', '처리중', '보류'].includes(r.status));
         } else if (currentFilter === 'completed') {
@@ -611,10 +685,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function updateDashboardKPI() {
-        const total = requests.length;
-        const rejected = requests.filter(r => r.status === '반려').length;
-        const completed = requests.filter(r => r.status === '완료').length;
-        const inProgress = requests.filter(r => ['접수', '처리중', '보류'].includes(r.status)).length;
+        const pubReqs = requests;
+        const total = pubReqs.length;
+        const rejected = pubReqs.filter(r => r.status === '반려').length;
+        const completed = pubReqs.filter(r => r.status === '완료').length;
+        const inProgress = pubReqs.filter(r => ['접수', '처리중', '보류'].includes(r.status)).length;
 
         elTotal.textContent = total + "건";
         elInProgress.textContent = inProgress + "건";
@@ -787,10 +862,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateReport() {
         if (!isAdmin) return;
-        const total = requests.length;
-        const completed = requests.filter(r => r.status === '완료').length;
-        const inProgress = requests.filter(r => ['접수', '처리중', '보류'].includes(r.status)).length;
-        const rejected = requests.filter(r => r.status === '반려').length;
+        const pubReqs = requests;
+        const total = pubReqs.length;
+        const completed = pubReqs.filter(r => r.status === '완료').length;
+        const inProgress = pubReqs.filter(r => ['접수', '처리중', '보류'].includes(r.status)).length;
+        const rejected = pubReqs.filter(r => r.status === '반려').length;
 
         const rate = total === 0 ? 0 : ((completed / total) * 100).toFixed(1);
 
@@ -983,6 +1059,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="detail-label" style="margin-bottom: 12px; width: 100%;">진행률</span> 
                 ${stepHtml}
             </div>
+            ${!isAdmin ? `
+            <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" onclick="promptPasswordForEdit(${req.id})" style="padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 4px; background-color: white; color: var(--text-color); cursor: pointer; font-weight: 500;">수정</button>
+                <button type="button" onclick="promptPasswordForDelete(${req.id})" style="padding: 8px 16px; border: 1px solid #fecaca; border-radius: 4px; background-color: #fef2f2; color: var(--danger); cursor: pointer; font-weight: 500;">삭제</button>
+            </div>` : ''}
         `;
         modalOverlay.classList.add('show');
     };
@@ -1011,4 +1092,138 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 문서 초기 렌더링 시 서버에서 데이터 최초 로드
     loadData();
+
+    // === 비밀번호 확인 및 수정/삭제 로직 ===
+    const passwordModal = document.getElementById('passwordModal');
+    const btnClosePasswordModal = document.getElementById('btnClosePasswordModal');
+    const btnVerifyPassword = document.getElementById('btnVerifyPassword');
+    const verifyPasswordInput = document.getElementById('verifyPasswordInput');
+    let currentActionReqId = null;
+    let currentActionType = null; // 'edit' or 'delete'
+
+    window.promptPasswordForEdit = function(id) {
+        currentActionReqId = id;
+        currentActionType = 'edit';
+        document.getElementById('passwordModalTitle').textContent = '수정 권한 확인';
+        verifyPasswordInput.value = '';
+        passwordModal.classList.add('show');
+    };
+
+    window.promptPasswordForDelete = function(id) {
+        currentActionReqId = id;
+        currentActionType = 'delete';
+        document.getElementById('passwordModalTitle').textContent = '삭제 권한 확인';
+        verifyPasswordInput.value = '';
+        passwordModal.classList.add('show');
+    };
+
+    if (btnClosePasswordModal) {
+        btnClosePasswordModal.addEventListener('click', () => {
+            passwordModal.classList.remove('show');
+        });
+    }
+
+    if (btnVerifyPassword) {
+        btnVerifyPassword.addEventListener('click', async () => {
+            const inputPw = verifyPasswordInput.value;
+            const req = requests.find(r => r.id == currentActionReqId);
+            if (!req) return;
+
+            if (req.password !== inputPw) {
+                alert('비밀번호가 일치하지 않습니다.');
+                return;
+            }
+
+            passwordModal.classList.remove('show');
+            document.getElementById('detailModal').classList.remove('show');
+
+            if (currentActionType === 'delete') {
+                if (confirm('정말 이 문의를 삭제하시겠습니까?')) {
+                    requests = requests.filter(r => r.id != currentActionReqId);
+                    await saveDataAsync();
+                    renderTable();
+                    alert('삭제되었습니다.');
+                }
+            } else if (currentActionType === 'edit') {
+                // 수정 모드 진입
+                document.querySelector('.nav-links a[data-target="page-request"]').click();
+                document.getElementById('pageRequestTitle').textContent = '전산 문의 수정';
+                document.getElementById('pageRequestDesc').textContent = '등록하신 문의 내용을 수정합니다.';
+                document.getElementById('editReqId').value = req.id;
+                document.getElementById('reqName').value = req.name;
+                document.getElementById('reqTeam').value = req.team;
+                if (req.email) {
+                    document.getElementById('reqEmailId').value = req.email.replace('@swei.co.kr', '');
+                } else {
+                    document.getElementById('reqEmailId').value = '';
+                }
+                document.getElementById('reqCategory').value = req.category;
+                document.getElementById('reqTitle').value = req.title || '';
+                document.getElementById('reqDesc').value = req.desc;
+                const reqPwdEl = document.getElementById('reqPassword');
+                if (reqPwdEl) reqPwdEl.value = req.password || '';
+                
+                attachedImages = req.images ? [...req.images] : [];
+                renderImagePreviews();
+
+                document.getElementById('btnSubmitRequest').innerHTML = '<i class="fa-solid fa-check"></i> 수정 완료';
+                const btnCancel = document.getElementById('btnCancelEdit');
+                if (btnCancel) btnCancel.style.display = 'inline-block';
+            }
+        });
+    }
+
+    // === 관리자 계정 추가 로직 ===
+    const btnAddAdmin = document.getElementById('btnAddAdmin');
+    const adminRegModal = document.getElementById('adminRegModal');
+    const btnCloseAdminRegModal = document.getElementById('btnCloseAdminRegModal');
+    const adminRegForm = document.getElementById('adminRegForm');
+
+    if (btnAddAdmin) {
+        btnAddAdmin.addEventListener('click', (e) => {
+            e.preventDefault();
+            adminRegForm.reset();
+            adminRegModal.classList.add('show');
+        });
+    }
+
+    if (btnCloseAdminRegModal) {
+        btnCloseAdminRegModal.addEventListener('click', () => {
+            adminRegModal.classList.remove('show');
+        });
+    }
+
+    if (adminRegForm) {
+        adminRegForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('newAdminId').value.trim();
+            const pw = document.getElementById('newAdminPw').value;
+            const pwConfirm = document.getElementById('newAdminPwConfirm').value;
+
+            if (pw !== pwConfirm) {
+                alert('비밀번호가 서로 일치하지 않습니다.');
+                return;
+            }
+
+            const encoder = new TextEncoder();
+            const data = encoder.encode(id + ":" + pw);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            const newAdmin = {
+                id: new Date().getTime(), // 고유 ID로 타임스탬프 사용
+                name: id,
+                password: hashHex,
+                date: new Date().toISOString()
+            };
+
+            admins.push(newAdmin);
+            const success = await saveDataAsync();
+            if (success) {
+                alert('새 관리자 계정이 성공적으로 추가되었습니다!');
+                adminRegModal.classList.remove('show');
+            }
+        });
+    }
 });

@@ -160,6 +160,10 @@ function getOrInitializeSheets(ss) {
 
 // 유틸리티: 문자열 SHA-256 단방향 해싱 함수 구현
 function sha256(input) {
+  // 안전장치: 인자가 없거나 null인 경우 빈 문자열로 대체하여 에러 방지
+  if (input === null || input === undefined) {
+    input = "";
+  }
   var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input, Utilities.Charset.UTF_8);
   var output = "";
   for (var i = 0; i < rawHash.length; i++) {

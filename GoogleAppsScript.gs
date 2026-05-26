@@ -89,21 +89,16 @@ function getOrInitializeSheets(ss) {
   var reportSheet = getOrCreateSheet(ss, '실적 보고서');
   var provisionSheet = getOrCreateSheet(ss, '지급/설치 내역');
   
-  // 4. 사용자 db 시트 확보 및 초기화
+  // 4. 사용자 db 시트 확보 및 안전 초기화
   var userSheet = ss.getSheetByName('사용자 db');
   if (!userSheet) {
     userSheet = ss.insertSheet('사용자 db');
   }
   var userData = userSheet.getDataRange().getValues();
-  var userHeaders = ['이름', 'id', '비번', '부서명'];
-  if (userData.length === 0 || userData[0].length === 0) {
+  var userHeaders = ['이름', '부서명', 'id', '비번', '계열사', '휴대전화', '이메일'];
+  // 시트가 아예 비어있는 경우에만 헤더 컬럼 자동 추가 (기존 데이터 삭제 방지)
+  if (userData.length === 0 || (userData.length === 1 && userData[0][0] === '')) {
     userSheet.appendRow(userHeaders);
-  } else {
-    var currentHeaders = userData[0];
-    if (currentHeaders.indexOf('id') === -1 || currentHeaders.indexOf('비번') === -1) {
-      userSheet.clear();
-      userSheet.appendRow(userHeaders);
-    }
   }
   
   return {
@@ -352,6 +347,7 @@ function doPost(e) {
             var idIdx = headers.indexOf('id');
             var pwIdx = headers.indexOf('비번');
             var teamIdx = headers.indexOf('부서명');
+            var emailIdx = headers.indexOf('이메일'); // 신규 이메일 컬럼 인덱스 감지
             
             if (idIdx !== -1 && pwIdx !== -1) {
               for (var i = 1; i < userData.length; i++) {
@@ -361,7 +357,10 @@ function doPost(e) {
                   role = 'user';
                   name = nameIdx !== -1 ? row[nameIdx] : '';
                   team = teamIdx !== -1 ? row[teamIdx] : '';
-                  email = username + '@swei.co.kr';
+                  
+                  // 이메일 컬럼이 비어있지 않으면 그대로 사용하고, 비어있으면 기본 도메인 조합값 부여
+                  var emailVal = emailIdx !== -1 ? String(row[emailIdx]) : '';
+                  email = emailVal ? emailVal : (username + '@swei.co.kr');
                   break;
                 }
               }

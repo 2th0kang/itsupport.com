@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (reqEmailIdEl && emailVal) {
-                reqEmailIdEl.value = emailVal.replace('@swei.co.kr', '');
+                reqEmailIdEl.value = emailVal.split('@')[0];
             }
         }
     }

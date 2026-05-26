@@ -89,15 +89,63 @@ function getOrInitializeSheets(ss) {
   var reportSheet = getOrCreateSheet(ss, '실적 보고서');
   var provisionSheet = getOrCreateSheet(ss, '지급/설치 내역');
   
-  // 4. 사용자 db 시트 확보 및 안전 초기화
+  // 4. 사용자 db 시트 확보 및 자동 마이그레이션
   var userSheet = ss.getSheetByName('사용자 db');
   if (!userSheet) {
     userSheet = ss.insertSheet('사용자 db');
   }
   var userData = userSheet.getDataRange().getValues();
   var userHeaders = ['이름', '부서명', 'id', '비번', '계열사', '휴대전화', '이메일'];
-  // 시트가 아예 비어있는 경우에만 헤더 컬럼 자동 추가 (기존 데이터 삭제 방지)
-  if (userData.length === 0 || (userData.length === 1 && userData[0][0] === '')) {
+  
+  if (userData.length > 0 && userData[0].length > 0 && userData[0][0] !== '') {
+    var currentHeaders = userData[0];
+    
+    // 현재 헤더 구조가 목표 헤더 구조와 일치하는지 대조
+    var needMigration = false;
+    if (currentHeaders.length !== userHeaders.length) {
+      needMigration = true;
+    } else {
+      for (var k = 0; k < userHeaders.length; k++) {
+        if (currentHeaders[k] !== userHeaders[k]) {
+          needMigration = true;
+          break;
+        }
+      }
+    }
+    
+    if (needMigration) {
+      // 기존 인덱스 감지
+      var oldNameIdx = currentHeaders.indexOf('이름');
+      var oldTeamIdx = currentHeaders.indexOf('부서명');
+      var oldIdIdx = currentHeaders.indexOf('id');
+      var oldPwIdx = currentHeaders.indexOf('비번');
+      var oldAffiliationIdx = currentHeaders.indexOf('계열사');
+      var oldPhoneIdx = currentHeaders.indexOf('휴대전화');
+      var oldEmailIdx = currentHeaders.indexOf('이메일');
+      
+      var newRows = [userHeaders]; // 첫 번째 행은 새로운 헤더 구조로 세팅
+      
+      for (var i = 1; i < userData.length; i++) {
+        var row = userData[i];
+        
+        var nameVal = oldNameIdx !== -1 ? row[oldNameIdx] : '';
+        var teamVal = oldTeamIdx !== -1 ? row[oldTeamIdx] : '';
+        var idVal = oldIdIdx !== -1 ? row[oldIdIdx] : '';
+        var pwVal = oldPwIdx !== -1 ? row[oldPwIdx] : '';
+        var affiliationVal = oldAffiliationIdx !== -1 ? row[oldAffiliationIdx] : '';
+        var phoneVal = oldPhoneIdx !== -1 ? row[oldPhoneIdx] : '';
+        var emailVal = oldEmailIdx !== -1 ? row[oldEmailIdx] : '';
+        
+        // 새로운 규격 순서로 행 빌드
+        newRows.push([nameVal, teamVal, idVal, pwVal, affiliationVal, phoneVal, emailVal]);
+      }
+      
+      userSheet.clear();
+      userSheet.getRange(1, 1, newRows.length, userHeaders.length).setValues(newRows);
+      SpreadsheetApp.flush();
+    }
+  } else {
+    // 시트가 아예 비어있는 경우
     userSheet.appendRow(userHeaders);
   }
   

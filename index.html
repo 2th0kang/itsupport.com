@@ -27,7 +27,7 @@
             <li id="nav-item-admin-list" style="display: none;"><a href="#" data-target="page-admin-list"><i class="fa-solid fa-users-gear"></i> 관리자 목록</a></li>
             
             <div style="flex-grow: 1;"></div>
-            <li id="nav-item-login"><a href="#" data-target="page-login"><i class="fa-solid fa-right-to-bracket"></i> 관리자 로그인</a></li>
+            <li id="nav-item-login"><a href="#" data-target="page-login"><i class="fa-solid fa-right-to-bracket"></i> 로그인</a></li>
             <li id="nav-item-logout" style="display: none;"><a href="#" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</a></li>
         </ul>
     </nav>
@@ -49,12 +49,12 @@
                         <div class="input-row">
                             <div class="input-col">
                                 <span class="sub-label">이름</span>
-                                <input type="text" id="reqName" placeholder="예: 홍길동" required>
+                                <input type="text" id="reqName" placeholder="로그인 정보 자동 입력" required readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                             </div>
                             <div class="input-col">
                                 <span class="sub-label">소속 팀</span>
-                                <select id="reqTeam" required>
-                                    <option value="" disabled selected>선택하세요</option>
+                                <select id="reqTeam" required disabled style="background-color: #f1f5f9; cursor: not-allowed;">
+                                    <option value="" disabled selected>로그인 정보 자동 입력</option>
                                     <option value="인사총무팀">인사총무팀</option>
                                     <option value="경영기획팀">경영기획팀</option>
                                     <option value="신규사업팀">신규사업팀</option>
@@ -71,7 +71,7 @@
                             <div class="input-col" style="flex: 0 0 calc(50% - 6px);">
                                 <span class="sub-label">사내메일</span>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="text" id="reqEmailId" placeholder="예: hong" required style="flex: 1; min-width: 0;">
+                                    <input type="text" id="reqEmailId" placeholder="로그인 정보 자동 입력" required readonly style="flex: 1; min-width: 0; background-color: #f1f5f9; cursor: not-allowed;">
                                     <span style="color: var(--text-muted); font-weight: 500; font-size: 0.95rem;">@swei.co.kr</span>
                                 </div>
                             </div>
@@ -107,10 +107,7 @@
                         <div id="imagePreviewContainer" class="image-preview-container"></div>
                     </div>
 
-                    <div class="form-group">
-                        <label><i class="fa-solid fa-lock"></i> 4. 비밀번호 (수정/삭제용)</label>
-                        <input type="password" id="reqPassword" placeholder="숫자 4자리 입력" maxlength="4" required style="max-width: 200px;">
-                    </div>
+
 
                     <button type="submit" class="btn-submit" id="btnSubmitRequest"><i class="fa-solid fa-paper-plane"></i> 문의 등록하기</button>
                     <button type="button" class="btn-submit" id="btnCancelEdit" style="display:none; background-color: var(--text-muted); margin-top: 10px;"><i class="fa-solid fa-xmark"></i> 수정 취소</button>
@@ -326,20 +323,20 @@
             </div>
         </section>
 
-        <!-- 5. 관리자 로그인 페이지 -->
+        <!-- 5. 통합 로그인 페이지 -->
         <section id="page-login" class="page">
             <div class="login-container">
                 <div class="card login-card">
                     <i class="fa-solid fa-lock login-icon"></i>
-                    <h2>관리자 로그인</h2>
-                    <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.95rem;">관리자 권한이 필요한 기능입니다.</p>
+                    <h2>시스템 로그인</h2>
+                    <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.95rem;">대시보드를 이용하려면 로그인이 필요합니다.</p>
                     <form id="loginForm">
                         <div class="form-group">
                             <label><i class="fa-solid fa-user"></i> 아이디</label>
                             <input type="text" id="loginId" placeholder="아이디를 입력하세요" required>
                         </div>
                         <div class="form-group">
-                            <label><i class="fa-solid fa-key"></i> 관리자 암호</label>
+                            <label><i class="fa-solid fa-key"></i> 비밀번호</label>
                             <input type="password" id="loginPw" placeholder="비밀번호를 입력하세요" required>
                         </div>
                         <button type="submit" class="btn-submit"><i class="fa-solid fa-right-to-bracket"></i> 로그인</button>
@@ -364,7 +361,8 @@
                         <thead>
                             <tr>
                                 <th>No</th>
-                                <th>관리자 아이디</th>
+                                <th>관리자 이름(실명)</th>
+                                <th>로그인 아이디</th>
                                 <th>등록 일시</th>
                                 <th>계정 관리</th>
                             </tr>
@@ -409,16 +407,20 @@
         <div class="modal-body">
             <form id="adminRegForm">
                 <div class="form-group">
+                    <label>이름(실명)</label>
+                    <input type="text" id="newAdminRealName" required placeholder="예: 홍길동">
+                </div>
+                <div class="form-group">
                     <label>새 관리자 아이디</label>
-                    <input type="text" id="newAdminId" required>
+                    <input type="text" id="newAdminId" required placeholder="영어/숫자 로그인 ID">
                 </div>
                 <div class="form-group">
                     <label>새 관리자 비밀번호</label>
-                    <input type="password" id="newAdminPw" required>
+                    <input type="password" id="newAdminPw" required placeholder="비밀번호 입력">
                 </div>
                 <div class="form-group">
                     <label>비밀번호 확인</label>
-                    <input type="password" id="newAdminPwConfirm" required>
+                    <input type="password" id="newAdminPwConfirm" required placeholder="비밀번호 확인 입력">
                 </div>
                 <button type="submit" class="btn-submit">추가하기</button>
             </form>
@@ -426,20 +428,36 @@
     </div>
 </div>
 
-<!-- 비밀번호 확인 모달 -->
-<div id="passwordModal" class="modal-overlay">
-    <div class="modal-content" style="max-width: 300px;">
+<!-- 비밀번호 변경 모달 (관리자용) -->
+<div id="changePasswordModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 350px;">
         <div class="modal-header">
-            <h2 id="passwordModalTitle">권한 확인</h2>
-            <button class="btn-close" id="btnClosePasswordModal"><i class="fa-solid fa-xmark"></i></button>
+            <h2>관리자 비밀번호 변경</h2>
+            <button class="btn-close" id="btnCloseChangePasswordModal"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-            <p style="margin-bottom:15px; font-size:0.95rem; color:var(--text-muted);">등록 시 입력한 비밀번호 4자리를 입력해주세요.</p>
-            <input type="password" id="verifyPasswordInput" maxlength="4" style="width:100%; text-align:center; font-size:1.5rem; letter-spacing:5px; margin-bottom:15px;" required>
-            <button type="button" id="btnVerifyPassword" class="btn-submit">확인</button>
+            <form id="changePasswordForm">
+                <input type="hidden" id="changePasswordAdminId" value="">
+                <input type="hidden" id="changePasswordUsername" value="">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>변경할 계정 아이디</label>
+                    <input type="text" id="changePasswordTargetId" readonly style="background-color:#f8fafc; font-weight:bold;">
+                </div>
+                <div class="form-group">
+                    <label>새 비밀번호</label>
+                    <input type="password" id="newChangePassword" placeholder="새 비밀번호 입력" required>
+                </div>
+                <div class="form-group">
+                    <label>비밀번호 확인</label>
+                    <input type="password" id="newChangePasswordConfirm" placeholder="비밀번호 확인 입력" required>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top: 15px;"><i class="fa-solid fa-key"></i> 비밀번호 변경</button>
+            </form>
         </div>
     </div>
 </div>
+
+
 
 <script src="script.js"></script>
 </body>

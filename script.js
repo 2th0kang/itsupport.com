@@ -4,8 +4,12 @@
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyYz7UFjZrZ-UkEVSR-ubT-SkUJu2v4vXB0kbGmCfKbCYojbRyOLDTTMntTBYn4eC3/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 권한 상태 관리
-    let isAdmin = localStorage.getItem('itAdminAuth') === 'true';
+    // 권한 및 사용자 정보 상태 관리
+    let userRole = localStorage.getItem('itUserRole') || ''; // 'admin', 'user', ''
+    let isAdmin = userRole === 'admin';
+    let userLoginId = localStorage.getItem('itUserLoginId') || '';
+    let userPasswordHash = localStorage.getItem('itUserPasswordHash') || '';
+    
     let requests = [];
     let attachedImages = []; // 첨부된 이미지 데이터 배열 (Base64)
 
@@ -16,6 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // (GET) 구글 시트에서 데이터 불러오기
     async function loadData() {
+        if (!userRole) {
+            // 비로그인 상태일 때는 데이터 조회 차단
+            return;
+        }
         if (!GOOGLE_SCRIPT_URL) {
             console.warn('구글 스크립트 연동 해제 상태 - 로컬 데이터 모드로 동작합니다.');
             const localData = localStorage.getItem('localRequestsDB');
@@ -28,11 +36,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         showLoading();
         try {
-            const response = await fetch(GOOGLE_SCRIPT_URL);
+            // 보안 강화: doGet 호출 시 사용자 아이디 및 패스워드 해시를 전달
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?username=${encodeURIComponent(userLoginId)}&passwordHash=${encodeURIComponent(userPasswordHash)}`);
             if (response.ok) {
                 const data = await response.json();
-                requests = data.requests || [];
-                renderTable(); // 데이터 가져온 후 테이블 다시 그리기
+                if (data.status === 'success') {
+                    requests = data.requests || [];
+                    renderTable(); // 데이터 가져온 후 테이블 다시 그리기
+                } else if (data.message === 'Unauthorized') {
+                    alert('세션이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.');
+                    btnLogout.click();
+                }
             }
         } catch (error) {
             console.error('데이터를 불러오는데 실패했습니다:', error);
@@ -84,24 +98,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemLogout = document.getElementById('nav-item-logout');
     const navItemRequest = document.getElementById('nav-item-request');
     const navItemAdminList = document.getElementById('nav-item-admin-list');
-    
 
-    // 네비게이션 업데이트
+    // 일반 사용자 로그인 시 입력 폼에 로그인 정보 자동 세팅
+    function fillUserInfo() {
+        if (userRole === 'user') {
+            const nameVal = localStorage.getItem('itUserName') || '';
+            const teamVal = localStorage.getItem('itUserTeam') || '';
+            const emailVal = localStorage.getItem('itUserEmail') || '';
+            
+            const reqNameEl = document.getElementById('reqName');
+            const reqTeamEl = document.getElementById('reqTeam');
+            const reqEmailIdEl = document.getElementById('reqEmailId');
+            
+            if (reqNameEl) reqNameEl.value = nameVal;
+            
+            if (reqTeamEl) {
+                reqTeamEl.disabled = false;
+                reqTeamEl.value = teamVal;
+                reqTeamEl.disabled = true;
+            }
+            
+            if (reqEmailIdEl && emailVal) {
+                reqEmailIdEl.value = emailVal.replace('@swei.co.kr', '');
+            }
+        }
+    }
+
+    // 네비게이션 및 메뉴 활성화 업데이트
     function updateNavVisibility() {
-        if (isAdmin) {
+        const reqTab = document.getElementById('nav-item-request');
+        const dashTab = document.querySelector('.nav-links a[data-target="page-dashboard"]').parentNode;
+        
+        reqTab.style.display = 'none';
+        dashTab.style.display = 'none';
+        navItemReport.style.display = 'none';
+        if (navItemProvision) navItemProvision.style.display = 'none';
+        if (navItemAdminList) navItemAdminList.style.display = 'none';
+        navItemLogin.style.display = 'none';
+        navItemLogout.style.display = 'none';
+        
+        if (!userRole) {
+            // 1. 비로그인 상태: 로그인 페이지만 노출
+            navItemLogin.style.display = 'block';
+            
+            pages.forEach(page => page.classList.remove('active'));
+            document.getElementById('page-login').classList.add('active');
+            navLinks.forEach(nav => nav.classList.remove('active'));
+            document.querySelector('.nav-links a[data-target="page-login"]').classList.add('active');
+        } else if (userRole === 'admin') {
+            // 2. 관리자 상태
+            dashTab.style.display = 'block';
             navItemReport.style.display = 'block';
             if (navItemProvision) navItemProvision.style.display = 'block';
             if (navItemAdminList) navItemAdminList.style.display = 'block';
-            navItemLogin.style.display = 'none';
             navItemLogout.style.display = 'block';
-            if (navItemRequest) navItemRequest.style.display = 'none';
-        } else {
-            navItemReport.style.display = 'none';
-            if (navItemProvision) navItemProvision.style.display = 'none';
-            if (navItemAdminList) navItemAdminList.style.display = 'none';
-            navItemLogin.style.display = 'block';
-            navItemLogout.style.display = 'none';
-            if (navItemRequest) navItemRequest.style.display = 'block';
+        } else if (userRole === 'user') {
+            // 3. 일반 사용자 상태
+            reqTab.style.display = 'block';
+            dashTab.style.display = 'block';
+            navItemLogout.style.display = 'block';
+            
+            // 로그인 정보 폼에 바인딩
+            fillUserInfo();
         }
     }
     updateNavVisibility();
@@ -111,6 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const targetId = link.getAttribute('data-target');
+            
+            // 비로그인 상태일 때는 로그인 탭 이외의 클릭 강제 차단
+            if (!userRole && targetId !== 'page-login') {
+                return;
+            }
+            
+            // 일반 사용자는 관리자 탭 클릭 불가
+            if (userRole === 'user' && ['page-report', 'page-provision', 'page-admin-list'].includes(targetId)) {
+                return;
+            }
+            
+            // 관리자는 문의 접수 탭 클릭 불가
+            if (userRole === 'admin' && targetId === 'page-request') {
+                return;
+            }
 
             navLinks.forEach(nav => nav.classList.remove('active'));
             link.classList.add('active');
@@ -121,9 +194,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'page-report') updateReport();
             if (targetId === 'page-provision') renderProvisionTable();
             if (targetId === 'page-admin-list') loadAdminList();
+            if (targetId === 'page-request') fillUserInfo();
 
-            // 처리 현황에 들어갈 때마다 혹시 다른 PC에서 변경된게 있는지 최신 데이터 다시 받아옴
-            if (targetId === 'page-dashboard' || targetId === 'page-report' || targetId === 'page-provision' || targetId === 'page-admin-list') {
+            // 처리 현황 등에 들어갈 때마다 최신 데이터 다시 받아옴
+            if (['page-dashboard', 'page-report', 'page-provision', 'page-admin-list'].includes(targetId)) {
                 loadData();
             }
 
@@ -131,9 +205,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 새로고침 시 항상 '문의 접수' 화면이 첫 화면으로 뜨도록 고정 (저장된 탭 무시)
-    const tabEle = document.querySelector(`.nav-links a[data-target="page-request"]`);
-    if (tabEle) tabEle.click();
+    // 새로고침 시 로그인 상태에 맞춰 첫 화면을 강제 포커싱
+    if (!userRole) {
+        const loginTabLink = document.querySelector(`.nav-links a[data-target="page-login"]`);
+        if (loginTabLink) loginTabLink.click();
+    } else if (userRole === 'admin') {
+        const dashTabLink = document.querySelector(`.nav-links a[data-target="page-dashboard"]`);
+        if (dashTabLink) dashTabLink.click();
+    } else {
+        const reqTabLink = document.querySelector(`.nav-links a[data-target="page-request"]`);
+        if (reqTabLink) reqTabLink.click();
+    }
 
     // 로그인 로그아웃 처리
     const loginForm = document.getElementById('loginForm');
@@ -153,12 +235,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
             let isValid = false;
+            let resRole = '';
+            let resName = '';
+            let resTeam = '';
+            let resEmail = '';
+            
             showLoading();
             try {
                 if (!GOOGLE_SCRIPT_URL) {
                     // 로컬 테스트 모드: admin:1234 고정 로그인만 허용
                     if (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
                         isValid = true;
+                        resRole = 'admin';
+                        resName = '마스터 관리자';
+                        resEmail = 'admin@swei.co.kr';
                     }
                 } else {
                     // 서버 사이드 검증 요청
@@ -175,6 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const result = await response.json();
                         if (result.status === 'success' && result.isValid) {
                             isValid = true;
+                            resRole = result.role;
+                            resName = result.name;
+                            resTeam = result.team;
+                            resEmail = result.email;
                         }
                     }
                 }
@@ -185,13 +279,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (isValid) {
-                isAdmin = true;
-                localStorage.setItem('itAdminAuth', 'true');
-                alert('관리자로 로그인되었습니다.');
+                userRole = resRole;
+                isAdmin = (resRole === 'admin');
+                userLoginId = id;
+                userPasswordHash = hashHex;
+                
+                localStorage.setItem('itUserRole', resRole);
+                localStorage.setItem('itUserName', resName || '');
+                localStorage.setItem('itUserTeam', resTeam || '');
+                localStorage.setItem('itUserEmail', resEmail || '');
+                localStorage.setItem('itUserLoginId', id);
+                localStorage.setItem('itUserPasswordHash', hashHex);
+                
+                alert(`${resName}님, 로그인되었습니다.`);
 
                 updateNavVisibility();
-                renderTable();
-                document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+                
+                // 로그인 완료 후 데이터 조회 시도
+                await loadData();
+                
+                if (resRole === 'admin') {
+                    document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+                } else {
+                    document.querySelector('.nav-links a[data-target="page-request"]').click();
+                }
                 loginForm.reset();
             } else {
                 alert('아이디 또는 비밀번호가 일치하지 않습니다.');
@@ -203,17 +314,28 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLogout.addEventListener('click', (e) => {
             e.preventDefault();
             if (confirm('로그아웃 하시겠습니까?')) {
+                userRole = '';
                 isAdmin = false;
-                localStorage.removeItem('itAdminAuth');
-                localStorage.setItem('activeTab', 'page-request');
+                userLoginId = '';
+                userPasswordHash = '';
+                requests = [];
+                
+                localStorage.removeItem('itUserRole');
+                localStorage.removeItem('itUserName');
+                localStorage.removeItem('itUserTeam');
+                localStorage.removeItem('itUserEmail');
+                localStorage.removeItem('itUserLoginId');
+                localStorage.removeItem('itUserPasswordHash');
+                localStorage.removeItem('activeTab');
 
                 alert('로그아웃 되었습니다.');
                 updateNavVisibility();
                 renderTable();
-                document.querySelector('.nav-links a[data-target="page-request"]').click();
+                
+                document.querySelector('.nav-links a[data-target="page-login"]').click();
             }
         });
-    }
+
 
     const dateEles = document.querySelectorAll('#currentDate');
     const today = new Date();
@@ -339,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = document.getElementById('reqCategory').value;
             const title = document.getElementById('reqTitle').value;
             const desc = document.getElementById('reqDesc').value;
-            const password = document.getElementById('reqPassword') ? document.getElementById('reqPassword').value : '';
+            const password = ''; // 임직원 로그인이 적용되어 개별 비밀번호 불필요
             const editId = document.getElementById('editReqId') ? document.getElementById('editReqId').value : '';
 
             if (editId) {
@@ -384,7 +506,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function cancelEditMode() {
-        if(requestForm) requestForm.reset();
+        if(requestForm) {
+            requestForm.reset();
+            fillUserInfo(); // 리셋 후 사용자 정보 재바인딩
+        }
         const editReqId = document.getElementById('editReqId');
         if(editReqId) editReqId.value = '';
         attachedImages = [];
@@ -1060,8 +1185,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             ${!isAdmin ? `
             <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
-                <button type="button" onclick="promptPasswordForEdit(${req.id})" style="padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 4px; background-color: white; color: var(--text-color); cursor: pointer; font-weight: 500;">수정</button>
-                <button type="button" onclick="promptPasswordForDelete(${req.id})" style="padding: 8px 16px; border: 1px solid #fecaca; border-radius: 4px; background-color: #fef2f2; color: var(--danger); cursor: pointer; font-weight: 500;">삭제</button>
+                <button type="button" onclick="handleUserEditRequest(${req.id})" style="padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 4px; background-color: white; color: var(--text-color); cursor: pointer; font-weight: 500;">수정</button>
+                <button type="button" onclick="handleUserDeleteRequest(${req.id})" style="padding: 8px 16px; border: 1px solid #fecaca; border-radius: 4px; background-color: #fef2f2; color: var(--danger); cursor: pointer; font-weight: 500;">삭제</button>
             </div>` : ''}
         `;
         modalOverlay.classList.add('show');
@@ -1092,85 +1217,70 @@ document.addEventListener('DOMContentLoaded', () => {
     // 문서 초기 렌더링 시 서버에서 데이터 최초 로드
     loadData();
 
-    // === 비밀번호 확인 및 수정/삭제 로직 ===
-    const passwordModal = document.getElementById('passwordModal');
-    const btnClosePasswordModal = document.getElementById('btnClosePasswordModal');
-    const btnVerifyPassword = document.getElementById('btnVerifyPassword');
-    const verifyPasswordInput = document.getElementById('verifyPasswordInput');
-    let currentActionReqId = null;
-    let currentActionType = null; // 'edit' or 'delete'
+    // === 일반 사용자 본인 글 비밀번호 없는 즉시 수정/삭제 제어 ===
+    window.handleUserEditRequest = function(id) {
+        const req = requests.find(r => r.id == id);
+        if (!req) return;
+        
+        const currentUserEmail = localStorage.getItem('itUserEmail') || '';
+        if (req.email !== currentUserEmail) {
+            alert('본인이 작성한 문의만 수정할 수 있습니다.');
+            return;
+        }
+        
+        modalOverlay.classList.remove('show');
+        
+        // 수정 모드 진입
+        document.querySelector('.nav-links a[data-target="page-request"]').click();
+        document.getElementById('pageRequestTitle').textContent = '전산 문의 수정';
+        document.getElementById('pageRequestDesc').textContent = '등록하신 문의 내용을 수정합니다.';
+        document.getElementById('editReqId').value = req.id;
+        document.getElementById('reqName').value = req.name;
+        
+        const reqTeamEl = document.getElementById('reqTeam');
+        if (reqTeamEl) {
+            reqTeamEl.disabled = false;
+            reqTeamEl.value = req.team;
+            reqTeamEl.disabled = true;
+        }
+        
+        if (req.email) {
+            document.getElementById('reqEmailId').value = req.email.replace('@swei.co.kr', '');
+        } else {
+            document.getElementById('reqEmailId').value = '';
+        }
+        document.getElementById('reqCategory').value = req.category;
+        document.getElementById('reqTitle').value = req.title || '';
+        document.getElementById('reqDesc').value = req.desc;
+        
+        attachedImages = req.images ? [...req.images] : [];
+        renderImagePreviews();
 
-    window.promptPasswordForEdit = function(id) {
-        currentActionReqId = id;
-        currentActionType = 'edit';
-        document.getElementById('passwordModalTitle').textContent = '수정 권한 확인';
-        verifyPasswordInput.value = '';
-        passwordModal.classList.add('show');
+        document.getElementById('btnSubmitRequest').innerHTML = '<i class="fa-solid fa-check"></i> 수정 완료';
+        const btnCancel = document.getElementById('btnCancelEdit');
+        if (btnCancel) btnCancel.style.display = 'inline-block';
     };
 
-    window.promptPasswordForDelete = function(id) {
-        currentActionReqId = id;
-        currentActionType = 'delete';
-        document.getElementById('passwordModalTitle').textContent = '삭제 권한 확인';
-        verifyPasswordInput.value = '';
-        passwordModal.classList.add('show');
+    window.handleUserDeleteRequest = async function(id) {
+        const req = requests.find(r => r.id == id);
+        if (!req) return;
+        
+        const currentUserEmail = localStorage.getItem('itUserEmail') || '';
+        if (req.email !== currentUserEmail) {
+            alert('본인이 작성한 문의만 삭제할 수 있습니다.');
+            return;
+        }
+        
+        modalOverlay.classList.remove('show');
+        if (confirm('정말 이 문의를 삭제하시겠습니까?')) {
+            requests = requests.filter(r => r.id != id);
+            const success = await saveDataAsync();
+            if (success) {
+                renderTable();
+                alert('삭제되었습니다.');
+            }
+        }
     };
-
-    if (btnClosePasswordModal) {
-        btnClosePasswordModal.addEventListener('click', () => {
-            passwordModal.classList.remove('show');
-        });
-    }
-
-    if (btnVerifyPassword) {
-        btnVerifyPassword.addEventListener('click', async () => {
-            const inputPw = verifyPasswordInput.value;
-            const req = requests.find(r => r.id == currentActionReqId);
-            if (!req) return;
-
-            if (req.password !== inputPw) {
-                alert('비밀번호가 일치하지 않습니다.');
-                return;
-            }
-
-            passwordModal.classList.remove('show');
-            document.getElementById('detailModal').classList.remove('show');
-
-            if (currentActionType === 'delete') {
-                if (confirm('정말 이 문의를 삭제하시겠습니까?')) {
-                    requests = requests.filter(r => r.id != currentActionReqId);
-                    await saveDataAsync();
-                    renderTable();
-                    alert('삭제되었습니다.');
-                }
-            } else if (currentActionType === 'edit') {
-                // 수정 모드 진입
-                document.querySelector('.nav-links a[data-target="page-request"]').click();
-                document.getElementById('pageRequestTitle').textContent = '전산 문의 수정';
-                document.getElementById('pageRequestDesc').textContent = '등록하신 문의 내용을 수정합니다.';
-                document.getElementById('editReqId').value = req.id;
-                document.getElementById('reqName').value = req.name;
-                document.getElementById('reqTeam').value = req.team;
-                if (req.email) {
-                    document.getElementById('reqEmailId').value = req.email.replace('@swei.co.kr', '');
-                } else {
-                    document.getElementById('reqEmailId').value = '';
-                }
-                document.getElementById('reqCategory').value = req.category;
-                document.getElementById('reqTitle').value = req.title || '';
-                document.getElementById('reqDesc').value = req.desc;
-                const reqPwdEl = document.getElementById('reqPassword');
-                if (reqPwdEl) reqPwdEl.value = req.password || '';
-                
-                attachedImages = req.images ? [...req.images] : [];
-                renderImagePreviews();
-
-                document.getElementById('btnSubmitRequest').innerHTML = '<i class="fa-solid fa-check"></i> 수정 완료';
-                const btnCancel = document.getElementById('btnCancelEdit');
-                if (btnCancel) btnCancel.style.display = 'inline-block';
-            }
-        });
-    }
 
     // === 관리자 계정 추가 로직 ===
     const btnShowAddAdminModal = document.getElementById('btnShowAddAdminModal');
@@ -1195,6 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adminRegForm) {
         adminRegForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const realName = document.getElementById('newAdminRealName').value.trim();
             const id = document.getElementById('newAdminId').value.trim();
             const pw = document.getElementById('newAdminPw').value;
             const pwConfirm = document.getElementById('newAdminPwConfirm').value;
@@ -1204,6 +1315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // 아이디와 패스워드를 결합하여 해싱 (서버 사이드 일치 규칙)
             const encoder = new TextEncoder();
             const data = encoder.encode(id + ":" + pw);
             const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -1221,7 +1333,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify({
                             action: 'addAdmin',
-                            name: id,
+                            username: id,
+                            name: realName,
                             password: hashHex
                         })
                     });
@@ -1282,7 +1395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '';
 
         if (admins.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 관리자가 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 관리자가 없습니다.</td></tr>`;
             return;
         }
 
@@ -1303,24 +1416,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 계정 삭제 버튼 (마스터 계정 'admin' 은 비활성화)
-            const isMaster = admin.name === 'admin';
+            // 마스터 계정은 삭제 불가 (단, 비밀번호 변경은 가능)
+            const isMaster = admin.username === 'admin';
+            
+            const changePwBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: var(--primary); color:white; border:none;" onclick="promptChangePassword(${admin.id}, '${admin.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
             const deleteBtnHtml = isMaster 
-                ? `<span style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500;">마스터 계정</span>`
+                ? `<span style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500; margin-left: 6px;">마스터 계정</span>`
                 : `<button class="btn-del" onclick="deleteAdminAccount(${admin.id}, '${admin.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
 
             tr.innerHTML = `
                 <td>${index + 1}</td>
-                <td><strong>${admin.name}</strong></td>
+                <td><strong>${admin.name || '-'}</strong></td>
+                <td><code>${admin.username || '-'}</code></td>
                 <td>${dateStr}</td>
-                <td>${deleteBtnHtml}</td>
+                <td>
+                    <div style="display:flex; align-items:center; justify-content:center;">
+                        ${changePwBtnHtml}
+                        ${deleteBtnHtml}
+                    </div>
+                </td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    window.deleteAdminAccount = async function(adminId, adminName) {
-        if (confirm(`정말 관리자 계정 [${adminName}]을(를) 영구 삭제하시겠습니까?`)) {
+    window.deleteAdminAccount = async function(adminId, adminRealName) {
+        if (confirm(`정말 관리자 계정 [${adminRealName}]을(를) 영구 삭제하시겠습니까?`)) {
             showLoading();
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -1334,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const result = await response.json();
                     if (result.status === 'success') {
-                        alert(`관리자 계정 [${adminName}]이(가) 정상적으로 삭제되었습니다.`);
+                        alert(`관리자 계정 [${adminRealName}]이(가) 정상적으로 삭제되었습니다.`);
                         loadAdminList(); // 삭제 후 목록 갱신
                     } else {
                         alert('계정 삭제 실패: ' + result.message);
@@ -1347,5 +1468,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideLoading();
             }
         }
+    };
+
+    // === 관리자 비밀번호 변경 처리 ===
+    const changePasswordModal = document.getElementById('changePasswordModal');
+    const btnCloseChangePasswordModal = document.getElementById('btnCloseChangePasswordModal');
+    const changePasswordForm = document.getElementById('changePasswordForm');
+
+    window.promptChangePassword = function(id, username) {
+        if (changePasswordForm) changePasswordForm.reset();
+        document.getElementById('changePasswordAdminId').value = id;
+        document.getElementById('changePasswordUsername').value = username;
+        document.getElementById('changePasswordTargetId').value = username;
+        if (changePasswordModal) changePasswordModal.classList.add('show');
+    };
+
+    if (btnCloseChangePasswordModal) {
+        btnCloseChangePasswordModal.addEventListener('click', () => {
+            if (changePasswordModal) changePasswordModal.classList.remove('show');
+        });
+    }
+
+    if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('changePasswordAdminId').value;
+            const username = document.getElementById('changePasswordUsername').value;
+            const newPw = document.getElementById('newChangePassword').value;
+            const newPwConfirm = document.getElementById('newChangePasswordConfirm').value;
+
+            if (newPw !== newPwConfirm) {
+                alert('비밀번호가 서로 일치하지 않습니다.');
+                return;
+            }
+
+            // 새 비밀번호 해싱 (아이디 + ":" + 새 비밀번호)
+            const encoder = new TextEncoder();
+            const data = encoder.encode(username + ":" + newPw);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            let success = false;
+            showLoading();
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'changeAdminPassword',
+                        adminId: id,
+                        newPasswordHash: hashHex
+                    })
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        success = true;
+                    } else {
+                        alert('비밀번호 변경 실패: ' + result.message);
+                    }
+                }
+            } catch (err) {
+                console.error('비밀번호 변경 중 네트워크 오류:', err);
+                alert('비밀번호 변경 중 오류가 발생했습니다.');
+            } finally {
+                hideLoading();
+            }
+
+            if (success) {
+                alert('관리자 비밀번호가 성공적으로 변경되었습니다!');
+                if (changePasswordModal) changePasswordModal.classList.remove('show');
+                loadAdminList(); // 완료 후 목록 갱신
+            }
+        });
     }
 });

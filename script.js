@@ -128,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateNavVisibility() {
         const reqTab = document.getElementById('nav-item-request');
         const dashTab = document.querySelector('.nav-links a[data-target="page-dashboard"]').parentNode;
+        const appContainer = document.querySelector('.app-container');
         
         reqTab.style.display = 'none';
         dashTab.style.display = 'none';
@@ -138,15 +139,18 @@ document.addEventListener('DOMContentLoaded', () => {
         navItemLogout.style.display = 'none';
         
         if (!userRole) {
-            // 1. 비로그인 상태: 로그인 페이지만 노출
+            // 1. 비로그인 상태: 로그인 페이지만 노출 및 전체 화면 레이아웃 적용
+            if (appContainer) appContainer.classList.add('logged-out');
             navItemLogin.style.display = 'block';
             
             pages.forEach(page => page.classList.remove('active'));
             document.getElementById('page-login').classList.add('active');
             navLinks.forEach(nav => nav.classList.remove('active'));
-            document.querySelector('.nav-links a[data-target="page-login"]').classList.add('active');
+            const loginLink = document.querySelector('.nav-links a[data-target="page-login"]');
+            if (loginLink) loginLink.classList.add('active');
         } else if (userRole === 'admin') {
             // 2. 관리자 상태
+            if (appContainer) appContainer.classList.remove('logged-out');
             dashTab.style.display = 'block';
             navItemReport.style.display = 'block';
             if (navItemProvision) navItemProvision.style.display = 'block';
@@ -154,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             navItemLogout.style.display = 'block';
         } else if (userRole === 'user') {
             // 3. 일반 사용자 상태
+            if (appContainer) appContainer.classList.remove('logged-out');
             reqTab.style.display = 'block';
             dashTab.style.display = 'block';
             navItemLogout.style.display = 'block';

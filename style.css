@@ -781,3 +781,33 @@ tbody tr.clickable-row:hover {
     margin-bottom: 10px;
     border: 1px solid var(--border-color);
 }
+
+/* ====================================================
+   비로그인 상태 전체화면 로그인 레이아웃 스타일 
+   ==================================================== */
+.logged-out .sidebar {
+    display: none !important;
+}
+.logged-out .main-content {
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--bg-main);
+    width: 100%;
+}
+.logged-out .login-container {
+    height: auto;
+    min-height: auto;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.logged-out .login-card {
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+}
+

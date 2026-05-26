@@ -280,7 +280,7 @@ function validateUser(sheets, username, passwordHash) {
 // 데이터 조회 (GET 요청 처리)
 function doGet(e) {
   try {
-    var ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+    var ss = SpreadsheetApp.openById("1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos");
     var sheets = getOrInitializeSheets(ss);
     
     // 수기 등록된 평문 암호 자동 보안 변환 실행
@@ -338,7 +338,7 @@ function doGet(e) {
 // 데이터 저장 및 보안 제어 (POST 요청 처리)
 function doPost(e) {
   try {
-    var ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+    var ss = SpreadsheetApp.openById("1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos");
     var payload = JSON.parse(e.postData.contents);
     var sheets = getOrInitializeSheets(ss);
     

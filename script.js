@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 권한 상태 관리
     let isAdmin = localStorage.getItem('itAdminAuth') === 'true';
     let requests = [];
-    let admins = []; // 구글 스프레드시트에서 가져올 관리자 데이터 배열
     let attachedImages = []; // 첨부된 이미지 데이터 배열 (Base64)
 
     // 로딩 오버레이 제어
@@ -23,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (localData) {
                 const parsed = JSON.parse(localData);
                 requests = parsed.requests || parsed || [];
-                admins = parsed.admins || [];
             }
             renderTable();
             return;
@@ -34,28 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
                 requests = data.requests || [];
-                admins = data.admins || [];
-                
-                // 마이그레이션: 기존 requests에 숨어있는 [ADMIN_ACCOUNT]를 admins로 이동
-                const legacyAdmins = requests.filter(r => r.category === '[ADMIN_ACCOUNT]');
-                if (legacyAdmins.length > 0) {
-                    requests = requests.filter(r => r.category !== '[ADMIN_ACCOUNT]');
-                    legacyAdmins.forEach(la => {
-                        admins.push({
-                            id: la.id || new Date().getTime(),
-                            name: la.name,
-                            password: la.password,
-                            date: la.date
-                        });
-                    });
-                    // 서버에 마이그레이션된 데이터 동기화
-                    fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ requests, admins })
-                    });
-                }
-
                 renderTable(); // 데이터 가져온 후 테이블 다시 그리기
             }
         } catch (error) {
@@ -70,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveDataAsync() {
         if (!GOOGLE_SCRIPT_URL) {
             // 서버 대신 브라우저 로컬 스토리지에 저장하여 원활한 UI 테스트 지원
-            localStorage.setItem('localRequestsDB', JSON.stringify({ requests, admins }));
+            localStorage.setItem('localRequestsDB', JSON.stringify({ requests }));
             updateDashboardKPI();
             return true;
         }
@@ -82,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 구글 앱스 스크립트 CORS 이슈 방지를 위해 text/plain 사용
                     'Content-Type': 'text/plain;charset=utf-8'
                 },
-                body: JSON.stringify({ requests, admins })
+                body: JSON.stringify({ action: 'saveRequests', requests })
             });
             if (response.ok) {
                 updateDashboardKPI(); // 성공하면 KPI 수치 갱신
@@ -165,11 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const id = document.getElementById('loginId').value;
+            const id = document.getElementById('loginId').value.trim();
             const pw = document.getElementById('loginPw').value;
 
-            // SHA-256 해시를 이용한 보안 로그인 처리 (admin / 1234)
-            // 소스 코드 상에 비밀번호 평문('1234')이 노출되지 않도록 해시값으로 비교합니다.
+            // SHA-256 해시를 이용한 보안 로그인 처리
             const encoder = new TextEncoder();
             const data = encoder.encode(id + ":" + pw);
             const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -177,12 +152,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
             let isValid = false;
-            // "admin:1234" 에 해당하는 SHA-256 해시값 고정값 일치 여부 확인
-            if (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
-                isValid = true;
-            } else {
-                const adminAccount = admins.find(a => a.name === id && a.password === hashHex);
-                if (adminAccount) isValid = true;
+            showLoading();
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    // 로컬 테스트 모드: admin:1234 고정 로그인만 허용
+                    if (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
+                        isValid = true;
+                    }
+                } else {
+                    // 서버 사이드 검증 요청
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'login',
+                            username: id,
+                            passwordHash: hashHex
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success' && result.isValid) {
+                            isValid = true;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('로그인 검증 실패:', err);
+            } finally {
+                hideLoading();
             }
 
             if (isValid) {
@@ -1211,15 +1209,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-            const newAdmin = {
-                id: new Date().getTime(), // 고유 ID로 타임스탬프 사용
-                name: id,
-                password: hashHex,
-                date: new Date().toISOString()
-            };
+            let success = false;
+            showLoading();
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    alert('구글 스크립트가 연동되지 않아 로컬에서는 관리자를 추가할 수 없습니다.');
+                } else {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'addAdmin',
+                            name: id,
+                            password: hashHex
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            success = true;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('관리자 추가 실패:', err);
+                alert('관리자 추가 중 네트워크 오류가 발생했습니다.');
+            } finally {
+                hideLoading();
+            }
 
-            admins.push(newAdmin);
-            const success = await saveDataAsync();
             if (success) {
                 alert('새 관리자 계정이 성공적으로 추가되었습니다!');
                 adminRegModal.classList.remove('show');

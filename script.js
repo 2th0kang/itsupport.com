@@ -340,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('.nav-links a[data-target="page-login"]').click();
             }
         });
+    }
 
 
     const dateEles = document.querySelectorAll('#currentDate');

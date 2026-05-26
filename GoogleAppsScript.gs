@@ -95,7 +95,7 @@ function getOrInitializeSheets(ss) {
     userSheet = ss.insertSheet('사용자 db');
   }
   var userData = userSheet.getDataRange().getValues();
-  var userHeaders = ['이름', '부서명', 'id', '비번', '계열사', '휴대전화', '이메일'];
+  var userHeaders = ['이름', '부서명', 'id', '비번', '계열사', '휴대전화', '이메일id', '이메일 도메인'];
   
   if (userData.length > 0 && userData[0].length > 0 && userData[0][0] !== '') {
     var currentHeaders = userData[0];
@@ -122,6 +122,8 @@ function getOrInitializeSheets(ss) {
       var oldAffiliationIdx = currentHeaders.indexOf('계열사');
       var oldPhoneIdx = currentHeaders.indexOf('휴대전화');
       var oldEmailIdx = currentHeaders.indexOf('이메일');
+      var oldEmailIdIdx = currentHeaders.indexOf('이메일id');
+      var oldEmailDomainIdx = currentHeaders.indexOf('이메일 도메인');
       
       var newRows = [userHeaders]; // 첫 번째 행은 새로운 헤더 구조로 세팅
       
@@ -134,10 +136,28 @@ function getOrInitializeSheets(ss) {
         var pwVal = oldPwIdx !== -1 ? row[oldPwIdx] : '';
         var affiliationVal = oldAffiliationIdx !== -1 ? row[oldAffiliationIdx] : '';
         var phoneVal = oldPhoneIdx !== -1 ? row[oldPhoneIdx] : '';
-        var emailVal = oldEmailIdx !== -1 ? row[oldEmailIdx] : '';
+        
+        // 이메일 분리 연동 처리
+        var emailIdVal = '';
+        var emailDomainVal = '';
+        if (oldEmailIdIdx !== -1) {
+          emailIdVal = row[oldEmailIdIdx];
+        }
+        if (oldEmailDomainIdx !== -1) {
+          emailDomainVal = row[oldEmailDomainIdx];
+        }
+        // 만약 기존에 '이메일' 컬럼이 있었고 '이메일id' 값이 비어있다면, 기존 이메일을 쪼개서 채워줌
+        if (!emailIdVal && oldEmailIdx !== -1 && row[oldEmailIdx]) {
+          var emailFull = String(row[oldEmailIdx]);
+          if (emailFull.indexOf('@') !== -1) {
+            var parts = emailFull.split('@');
+            emailIdVal = parts[0];
+            emailDomainVal = parts[1];
+          }
+        }
         
         // 새로운 규격 순서로 행 빌드
-        newRows.push([nameVal, teamVal, idVal, pwVal, affiliationVal, phoneVal, emailVal]);
+        newRows.push([nameVal, teamVal, idVal, pwVal, affiliationVal, phoneVal, emailIdVal, emailDomainVal]);
       }
       
       userSheet.clear();
@@ -399,7 +419,8 @@ function doPost(e) {
             var idIdx = headers.indexOf('id');
             var pwIdx = headers.indexOf('비번');
             var teamIdx = headers.indexOf('부서명');
-            var emailIdx = headers.indexOf('이메일'); // 신규 이메일 컬럼 인덱스 감지
+            var emailIdIdx = headers.indexOf('이메일id'); // 신규 이메일id 인덱스 감지
+            var emailDomainIdx = headers.indexOf('이메일 도메인'); // 신규 이메일 도메인 인덱스 감지
             
             if (idIdx !== -1 && pwIdx !== -1) {
               for (var i = 1; i < userData.length; i++) {
@@ -410,9 +431,14 @@ function doPost(e) {
                   name = nameIdx !== -1 ? row[nameIdx] : '';
                   team = teamIdx !== -1 ? row[teamIdx] : '';
                   
-                  // 이메일 컬럼이 비어있지 않으면 그대로 사용하고, 비어있으면 기본 도메인 조합값 부여
-                  var emailVal = emailIdx !== -1 ? String(row[emailIdx]) : '';
-                  email = emailVal ? emailVal : (username + '@swei.co.kr');
+                  // 이메일 id와 도메인을 재결합하여 전송
+                  var mailId = emailIdIdx !== -1 ? String(row[emailIdIdx]) : '';
+                  var mailDomain = emailDomainIdx !== -1 ? String(row[emailDomainIdx]) : '';
+                  if (mailId && mailDomain) {
+                    email = mailId + '@' + mailDomain;
+                  } else {
+                    email = username + '@swei.co.kr'; // 대체 기본값
+                  }
                   break;
                 }
               }

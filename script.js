@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemLogin = document.getElementById('nav-item-login');
     const navItemLogout = document.getElementById('nav-item-logout');
     const navItemRequest = document.getElementById('nav-item-request');
-    const navItemAddAdmin = document.getElementById('nav-item-add-admin');
+    const navItemAdminList = document.getElementById('nav-item-admin-list');
     
 
     // 네비게이션 업데이트
@@ -91,14 +91,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isAdmin) {
             navItemReport.style.display = 'block';
             if (navItemProvision) navItemProvision.style.display = 'block';
-            if (navItemAddAdmin) navItemAddAdmin.style.display = 'block';
+            if (navItemAdminList) navItemAdminList.style.display = 'block';
             navItemLogin.style.display = 'none';
             navItemLogout.style.display = 'block';
             if (navItemRequest) navItemRequest.style.display = 'none';
         } else {
             navItemReport.style.display = 'none';
             if (navItemProvision) navItemProvision.style.display = 'none';
-            if (navItemAddAdmin) navItemAddAdmin.style.display = 'none';
+            if (navItemAdminList) navItemAdminList.style.display = 'none';
             navItemLogin.style.display = 'block';
             navItemLogout.style.display = 'none';
             if (navItemRequest) navItemRequest.style.display = 'block';
@@ -120,9 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (targetId === 'page-report') updateReport();
             if (targetId === 'page-provision') renderProvisionTable();
+            if (targetId === 'page-admin-list') loadAdminList();
 
             // 처리 현황에 들어갈 때마다 혹시 다른 PC에서 변경된게 있는지 최신 데이터 다시 받아옴
-            if (targetId === 'page-dashboard' || targetId === 'page-report' || targetId === 'page-provision') {
+            if (targetId === 'page-dashboard' || targetId === 'page-report' || targetId === 'page-provision' || targetId === 'page-admin-list') {
                 loadData();
             }
 
@@ -1172,13 +1173,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === 관리자 계정 추가 로직 ===
-    const btnAddAdmin = document.getElementById('btnAddAdmin');
+    const btnShowAddAdminModal = document.getElementById('btnShowAddAdminModal');
     const adminRegModal = document.getElementById('adminRegModal');
     const btnCloseAdminRegModal = document.getElementById('btnCloseAdminRegModal');
     const adminRegForm = document.getElementById('adminRegForm');
 
-    if (btnAddAdmin) {
-        btnAddAdmin.addEventListener('click', (e) => {
+    if (btnShowAddAdminModal) {
+        btnShowAddAdminModal.addEventListener('click', (e) => {
             e.preventDefault();
             adminRegForm.reset();
             adminRegModal.classList.add('show');
@@ -1241,7 +1242,110 @@ document.addEventListener('DOMContentLoaded', () => {
             if (success) {
                 alert('새 관리자 계정이 성공적으로 추가되었습니다!');
                 adminRegModal.classList.remove('show');
+                loadAdminList(); // 추가 성공 시 목록 갱신
             }
         });
+    }
+
+    // === 관리자 목록 로드 및 렌더링 ===
+    window.loadAdminList = async function() {
+        if (!GOOGLE_SCRIPT_URL) {
+            console.warn('구글 스크립트 연동 해제 상태 - 관리자 목록을 조회할 수 없습니다.');
+            return;
+        }
+        showLoading();
+        try {
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getAdmins' })
+            });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.status === 'success') {
+                    renderAdminList(result.admins || []);
+                } else {
+                    alert('관리자 목록 조회 실패: ' + result.message);
+                }
+            }
+        } catch (err) {
+            console.error('관리자 목록 조회 중 오류:', err);
+            alert('관리자 목록 조회 중 네트워크 오류가 발생했습니다.');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    function renderAdminList(admins) {
+        const tbody = document.querySelector('#adminListTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (admins.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 관리자가 없습니다.</td></tr>`;
+            return;
+        }
+
+        admins.forEach((admin, index) => {
+            const tr = document.createElement('tr');
+            
+            // 등록일시 포맷팅 (KST 문자열 파싱)
+            let dateStr = '-';
+            if (admin.date) {
+                try {
+                    const d = new Date(admin.date);
+                    dateStr = d.toLocaleDateString('ko-KR', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit'
+                    });
+                } catch(e) {
+                    dateStr = admin.date;
+                }
+            }
+
+            // 계정 삭제 버튼 (마스터 계정 'admin' 은 비활성화)
+            const isMaster = admin.name === 'admin';
+            const deleteBtnHtml = isMaster 
+                ? `<span style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500;">마스터 계정</span>`
+                : `<button class="btn-del" onclick="deleteAdminAccount(${admin.id}, '${admin.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
+
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><strong>${admin.name}</strong></td>
+                <td>${dateStr}</td>
+                <td>${deleteBtnHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    window.deleteAdminAccount = async function(adminId, adminName) {
+        if (confirm(`정말 관리자 계정 [${adminName}]을(를) 영구 삭제하시겠습니까?`)) {
+            showLoading();
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'deleteAdmin',
+                        adminId: adminId
+                    })
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        alert(`관리자 계정 [${adminName}]이(가) 정상적으로 삭제되었습니다.`);
+                        loadAdminList(); // 삭제 후 목록 갱신
+                    } else {
+                        alert('계정 삭제 실패: ' + result.message);
+                    }
+                }
+            } catch (err) {
+                console.error('관리자 삭제 오류:', err);
+                alert('관리자 계정 삭제 중 네트워크 오류가 발생했습니다.');
+            } finally {
+                hideLoading();
+            }
+        }
     }
 });

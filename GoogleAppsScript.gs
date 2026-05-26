@@ -293,6 +293,68 @@ function doPost(e) {
       
       return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
         .setMimeType(ContentService.MimeType.JSON);
+    // --- 액션 D: 관리자 목록 조회 (비밀번호 제외) ---
+    } else if (action === 'getAdmins') {
+      var adminData = sheets.admins.getDataRange().getValues();
+      var admins = [];
+      if (adminData.length > 1) {
+        var headers = adminData[0];
+        var idIdx = headers.indexOf('id');
+        var nameIdx = headers.indexOf('name');
+        var dateIdx = headers.indexOf('date');
+        
+        for (var i = 1; i < adminData.length; i++) {
+          var row = adminData[i];
+          var obj = {
+            id: idIdx !== -1 ? Number(row[idIdx]) : '',
+            name: nameIdx !== -1 ? row[nameIdx] : '',
+            date: dateIdx !== -1 ? row[dateIdx] : ''
+          };
+          admins.push(obj);
+        }
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({status: 'success', admins: admins}))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    // --- 액션 E: 관리자 계정 삭제 (마스터 계정 삭제 불가 보호) ---
+    } else if (action === 'deleteAdmin') {
+      var adminId = Number(payload.adminId);
+      var adminData = sheets.admins.getDataRange().getValues();
+      var deleted = false;
+      
+      if (adminData.length > 1) {
+        var headers = adminData[0];
+        var idIdx = headers.indexOf('id');
+        var nameIdx = headers.indexOf('name');
+        
+        if (idIdx !== -1) {
+          for (var j = 1; j < adminData.length; j++) {
+            var row = adminData[j];
+            var currentId = Number(row[idIdx]);
+            var currentName = nameIdx !== -1 ? row[nameIdx] : '';
+            
+            if (currentId === adminId) {
+              if (currentName === 'admin') {
+                return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '마스터 계정은 삭제할 수 없습니다.'}))
+                  .setMimeType(ContentService.MimeType.JSON);
+              }
+              
+              sheets.admins.deleteRow(j + 1);
+              deleted = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (deleted) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 관리자를 찾을 수 없습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     } else {
       return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'Unknown action: ' + action}))
         .setMimeType(ContentService.MimeType.JSON);

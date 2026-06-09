@@ -18,6 +18,26 @@
 // 구글 스프레드시트 주소를 아래 따옴표 안에 붙여넣으세요.
 var SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos/edit?gid=0#gid=0';
 
+// 유틸리티: 연동된 스프레드시트 객체 안전하게 획득하기
+function getSpreadsheet() {
+  try {
+    // 1. 스프레드시트 내에 바인딩되어 실행되는 경우 활성 시트 객체를 반환합니다.
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) return ss;
+  } catch (err) {
+    // 웹앱 API 단독 실행 등으로 활성 시트를 바로 잡지 못하는 경우 예외 처리
+  }
+  
+  // 2. 활성 시트를 잡지 못하는 경우 URL 또는 ID 값을 파싱하여 수동으로 열어 반환합니다.
+  var url = SPREADSHEET_URL;
+  if (url.indexOf('docs.google.com/spreadsheets') !== -1) {
+    return SpreadsheetApp.openByUrl(url);
+  } else {
+    // URL이 아닌 ID 형식으로 적었을 경우 대응
+    return SpreadsheetApp.openById(url);
+  }
+}
+
 // 유틸리티: 시트 이름으로 시트 가져오기 (없으면 생성)
 function getOrCreateSheet(ss, sheetName) {
   var sheet = ss.getSheetByName(sheetName);
@@ -327,7 +347,7 @@ function validateUser(sheets, username, passwordHash) {
 // 데이터 조회 (GET 요청 처리)
 function doGet(e) {
   try {
-    var ss = SpreadsheetApp.openById("1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos");
+    var ss = getSpreadsheet();
     var sheets = getOrInitializeSheets(ss);
     
     // 수기 등록된 평문 암호 자동 보안 변환 실행
@@ -385,7 +405,7 @@ function doGet(e) {
 // 데이터 저장 및 보안 제어 (POST 요청 처리)
 function doPost(e) {
   try {
-    var ss = SpreadsheetApp.openById("1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos");
+    var ss = getSpreadsheet();
     var payload = JSON.parse(e.postData.contents);
     var sheets = getOrInitializeSheets(ss);
     
@@ -738,7 +758,7 @@ function doOptions(e) {
 
 // 수동 실행 및 마이그레이션 권한 승인을 위한 진입점 함수
 function runInitialize() {
-  var ss = SpreadsheetApp.openById("1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos");
+  var ss = getSpreadsheet();
   var sheets = getOrInitializeSheets(ss);
   checkAndHashPlainPasswords(sheets);
   Logger.log("성공적으로 초기화 및 마이그레이션이 완료되었습니다.");

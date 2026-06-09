@@ -1140,18 +1140,140 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // 반려 처리 시 반려 사유를 입력받는 커스텀 모달
+    function showRejectModal(req, selectEle) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay show';
+        overlay.style.zIndex = '9999';
+
+        overlay.innerHTML = `
+            <div class="modal-content" style="max-width: 400px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);">
+                <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
+                    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">반려 사유 입력</h2>
+                </div>
+                <div class="modal-body" style="padding: 24px;">
+                    <p style="margin-bottom: 10px; font-weight: 600; font-size: 0.95rem; color: var(--text-main);">반려 사유를 입력해주세요:</p>
+                    <textarea id="rejectReasonInput" rows="3" style="width:100%; padding:10px; border: 1px solid var(--border-color); border-radius: 6px; resize: vertical; font-family: inherit; font-size: 0.9rem;" placeholder="반려 사유를 입력해주세요."></textarea>
+                    
+                    <div style="margin-top:20px; text-align:right;">
+                        <button id="rejectCancel" style="padding: 8px 16px; border: none; border-radius: 6px; background-color: #e2e8f0; color: #475569; cursor: pointer; margin-right: 8px; font-family: inherit; font-size: 0.95rem; font-weight: 600; transition: background 0.2s;">취소</button>
+                        <button id="rejectSave" style="padding: 8px 16px; border: none; border-radius: 6px; background-color: var(--primary); color: white; cursor: pointer; font-family: inherit; font-size: 0.95rem; font-weight: 600; transition: filter 0.2s;">저장</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const inp = overlay.querySelector('#rejectReasonInput');
+        inp.focus();
+
+        const closeOverlay = () => {
+            selectEle.value = req.status; // Revert
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', escListener);
+        };
+
+        const escListener = (e) => {
+            if (e.key === 'Escape') closeOverlay();
+        };
+        document.addEventListener('keydown', escListener);
+
+        overlay.querySelector('#rejectCancel').onclick = closeOverlay;
+
+        overlay.querySelector('#rejectSave').onclick = async () => {
+            const reason = inp.value.trim();
+            if (!reason) {
+                alert('반려 사유를 입력해주세요.');
+                return;
+            }
+            document.removeEventListener('keydown', escListener);
+            req.rejectReason = reason;
+            req.completeReason = '';
+            delete req.resolution;
+
+            req.status = '반려';
+            await saveDataAsync();
+            selectEle.className = 'status-select status-반려';
+            selectEle.value = '반려';
+            if (isAdmin) updateReport();
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // 옵션 지정이 없는 카테고리의 처리 내역을 입력받는 커스텀 완료 모달
+    function showDefaultCompleteModal(req, selectEle) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay show';
+        overlay.style.zIndex = '9999';
+
+        overlay.innerHTML = `
+            <div class="modal-content" style="max-width: 400px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);">
+                <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
+                    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">${req.category} 처리 완료</h2>
+                </div>
+                <div class="modal-body" style="padding: 24px;">
+                    <p style="margin-bottom: 10px; font-weight: 600; font-size: 0.95rem; color: var(--text-main);">처리 내역(사유)을 입력하세요:</p>
+                    <input type="text" id="defaultProgInput" style="width:100%; padding:10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; font-size: 0.9rem; margin-bottom: 15px;" placeholder="처리 내역을 입력하세요.">
+                    
+                    <p style="margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; color: var(--text-main);">해결 과정 (선택사항)</p>
+                    <textarea id="defaultProgResolution" rows="3" style="width:100%; padding:10px; border: 1px solid var(--border-color); border-radius: 6px; resize: vertical; font-family: inherit; font-size: 0.9rem;" placeholder="어떻게 해결했는지 과정을 간략히 적어주세요."></textarea>
+                    
+                    <div style="margin-top:20px; text-align:right;">
+                        <button id="defaultProgCancel" style="padding: 8px 16px; border: none; border-radius: 6px; background-color: #e2e8f0; color: #475569; cursor: pointer; margin-right: 8px; font-family: inherit; font-size: 0.95rem; font-weight: 600; transition: background 0.2s;">취소</button>
+                        <button id="defaultProgSave" style="padding: 8px 16px; border: none; border-radius: 6px; background-color: var(--primary); color: white; cursor: pointer; font-family: inherit; font-size: 0.95rem; font-weight: 600; transition: filter 0.2s;">저장</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const inp = overlay.querySelector('#defaultProgInput');
+        inp.focus();
+
+        const closeOverlay = () => {
+            selectEle.value = req.status; // Revert
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', escListener);
+        };
+
+        const escListener = (e) => {
+            if (e.key === 'Escape') closeOverlay();
+        };
+        document.addEventListener('keydown', escListener);
+
+        overlay.querySelector('#defaultProgCancel').onclick = closeOverlay;
+
+        overlay.querySelector('#defaultProgSave').onclick = async () => {
+            const reason = inp.value.trim();
+            if (!reason) {
+                alert('처리 내역(사유)을 입력해주세요.');
+                return;
+            }
+            document.removeEventListener('keydown', escListener);
+            req.completeReason = reason;
+
+            const resolution = overlay.querySelector('#defaultProgResolution').value.trim();
+            if (resolution) req.resolution = resolution;
+            else delete req.resolution;
+
+            req.rejectReason = '';
+            req.status = '완료';
+            await saveDataAsync();
+            selectEle.className = 'status-select status-완료';
+            selectEle.value = '완료';
+            if (isAdmin) updateReport();
+            document.body.removeChild(overlay);
+        };
+    }
+
     window.changeStatus = async function (id, selectEle) {
         if (!isAdmin) return; // 보안
         const newStatus = selectEle.value;
         const req = requests.find(r => r.id === id);
         if (req) {
             if (newStatus === '반려') {
-                const reason = prompt('반려 사유를 입력해주세요:');
-                if (reason === null) {
-                    selectEle.value = req.status;
-                    return;
-                }
-                req.rejectReason = reason || '사유 미입력';
+                showRejectModal(req, selectEle);
+                return;
             } else {
                 req.rejectReason = '';
             }
@@ -1167,19 +1289,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                     return;
                 } else {
-                    const reason = prompt(`${req.category} 처리 내역(사유)을 입력하세요:`);
-                    if (reason === null) {
-                        selectEle.value = req.status;
-                        return;
-                    }
-                    req.completeReason = reason || '사유 미입력';
-
-                    const resolution = prompt(`어떻게 해결했는지 과정을 간략히 적어주세요 (선택사항):`);
-                    if (resolution !== null && resolution.trim() !== '') {
-                        req.resolution = resolution.trim();
-                    } else {
-                        delete req.resolution;
-                    }
+                    showDefaultCompleteModal(req, selectEle);
+                    return;
                 }
             } else {
                 req.completeReason = '';

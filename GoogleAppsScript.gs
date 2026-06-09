@@ -1011,7 +1011,7 @@ function sendNewRequestAlertToAdmins(req, adminEmails) {
         "</div>" +
 
         "<div style='text-align: center; margin: 30px 0 10px 0;'>" +
-          "<a href='" + DASHBOARD_URL + "' target='_blank' style='background-color: #4338ca; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 6px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);'>IT지원센터 대시보드 열기</a>" +
+          "<a href='" + DASHBOARD_URL + "' target='_blank' style='background-color: #4338ca; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 6px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);'>IT지원센터 열기</a>" +
         "</div>" +
       "</div>" +
       "<div style='background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11.5px; color: #94a3b8; border-top: 1px solid #f1f5f9;'>" +

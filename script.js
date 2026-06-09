@@ -1724,6 +1724,74 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // === 관리자 계정 정보 수정 로직 ===
+    const adminEditModal = document.getElementById('adminEditModal');
+    const btnCloseAdminEditModal = document.getElementById('btnCloseAdminEditModal');
+    const adminEditForm = document.getElementById('adminEditForm');
+
+    if (btnCloseAdminEditModal) {
+        btnCloseAdminEditModal.addEventListener('click', () => {
+            adminEditModal.classList.remove('show');
+        });
+    }
+
+    window.openEditAdminModal = function(id, name, username, email) {
+        document.getElementById('editAdminId').value = id;
+        document.getElementById('editAdminRealName').value = name;
+        document.getElementById('editAdminUsername').value = username;
+        document.getElementById('editAdminEmail').value = email;
+        adminEditModal.classList.add('show');
+    };
+
+    if (adminEditForm) {
+        adminEditForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const adminId = document.getElementById('editAdminId').value;
+            const realName = document.getElementById('editAdminRealName').value.trim();
+            const username = document.getElementById('editAdminUsername').value.trim();
+            const email = document.getElementById('editAdminEmail').value.trim();
+
+            let success = false;
+            showLoading();
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    alert('구글 스크립트가 연동되지 않아 로컬에서는 관리자 정보를 수정할 수 없습니다.');
+                } else {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'updateAdminInfo',
+                            adminId: adminId,
+                            username: username,
+                            name: realName,
+                            email: email
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            success = true;
+                        } else {
+                            alert(result.message || '관리자 정보 수정 실패');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('관리자 정보 수정 실패:', err);
+                alert('관리자 정보 수정 중 네트워크 오류가 발생했습니다.');
+            } finally {
+                hideLoading();
+            }
+
+            if (success) {
+                alert('관리자 정보가 성공적으로 수정되었습니다.');
+                adminEditModal.classList.remove('show');
+                loadAdminList(); // 목록 갱신
+            }
+        });
+    }
+
     // === 관리자 목록 로드 및 렌더링 ===
     window.loadAdminList = async function() {
         if (!GOOGLE_SCRIPT_URL) {
@@ -1780,9 +1848,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 마스터 계정은 삭제 불가 (단, 비밀번호 변경은 가능)
-            const isMaster = admin.username === 'admin';
+            // 마스터 계정은 삭제 불가 (ID 1번 기준)
+            const isMaster = Number(admin.id) === 1;
             
+            const editBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: #4f46e5; color:white; border:none;" onclick="openEditAdminModal(${admin.id}, '${admin.name || ''}', '${admin.username || ''}', '${admin.email || ''}')"><i class="fa-solid fa-user-gear"></i> 수정</button>`;
             const changePwBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: var(--primary); color:white; border:none;" onclick="promptChangePassword(${admin.id}, '${admin.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
             const deleteBtnHtml = isMaster 
                 ? `<span style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500; margin-left: 6px;">마스터 계정</span>`
@@ -1796,6 +1865,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${dateStr}</td>
                 <td>
                     <div style="display:flex; align-items:center; justify-content:center;">
+                        ${editBtnHtml}
                         ${changePwBtnHtml}
                         ${deleteBtnHtml}
                     </div>

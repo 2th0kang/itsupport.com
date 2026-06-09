@@ -516,12 +516,11 @@ function doPost(e) {
       var data = adminSheet.getDataRange().getValues();
       var headers = data[0];
       var idColIdx = headers.indexOf('id');
-      var usernameColIdx = headers.indexOf('username');
       
       if (idColIdx !== -1) {
         for (var i = 1; i < data.length; i++) {
           if (Number(data[i][idColIdx]) === adminId) {
-            if (usernameColIdx !== -1 && data[i][usernameColIdx].toString().trim() === 'admin') {
+            if (adminId === 1) {
               return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '마스터 관리자 계정은 삭제할 수 없습니다.'}))
                 .setMimeType(ContentService.MimeType.JSON);
             }
@@ -554,6 +553,54 @@ function doPost(e) {
         for (var i = 1; i < data.length; i++) {
           if (Number(data[i][idColIdx]) === adminId) {
             adminSheet.getRange(i + 1, passwordColIdx + 1).setValue(newPasswordHash);
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 ID를 가진 관리자를 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 6. 관리자 정보 수정 액션 (아이디, 이름, 이메일)
+    else if (action === 'updateAdminInfo') {
+      var adminSheet = ss.getSheetByName('관리자 계정');
+      if (!adminSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '관리자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var adminId = Number(payload.adminId);
+      var username = payload.username.toString().trim();
+      var name = payload.name.toString().trim();
+      var email = payload.email.toString().trim();
+      
+      var data = adminSheet.getDataRange().getValues();
+      var headers = data[0];
+      var idColIdx = headers.indexOf('id');
+      var usernameColIdx = headers.indexOf('username');
+      var nameColIdx = headers.indexOf('name');
+      var emailColIdx = headers.indexOf('email');
+      
+      // 아이디 중복 체크 (자신을 제외한 다른 계정)
+      if (usernameColIdx !== -1 && idColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var dbId = Number(data[i][idColIdx]);
+          var dbUser = data[i][usernameColIdx].toString().trim();
+          if (dbId !== adminId && dbUser === username) {
+            return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '이미 존재하는 관리자 ID입니다.'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      
+      // 정보 업데이트
+      if (idColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (Number(data[i][idColIdx]) === adminId) {
+            if (usernameColIdx !== -1) adminSheet.getRange(i + 1, usernameColIdx + 1).setValue(username);
+            if (nameColIdx !== -1) adminSheet.getRange(i + 1, nameColIdx + 1).setValue(name);
+            if (emailColIdx !== -1) adminSheet.getRange(i + 1, emailColIdx + 1).setValue(email);
+            
             return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
               .setMimeType(ContentService.MimeType.JSON);
           }

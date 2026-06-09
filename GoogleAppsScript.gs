@@ -85,6 +85,29 @@ function getOrInitializeSheets(ss) {
     adminSheet.appendRow(targetHeaders);
   }
   
+  // 안전장치: 관리자 시트에 'admin' 계정이 없는 경우 자동으로 기본 관리자 계정(admin / 1234) 추가
+  var adminRows = adminSheet.getDataRange().getValues();
+  var hasAdmin = false;
+  if (adminRows.length > 1) {
+    var headers = adminRows[0];
+    var usernameIdx = headers.indexOf('username');
+    if (usernameIdx !== -1) {
+      for (var i = 1; i < adminRows.length; i++) {
+        if (String(adminRows[i][usernameIdx]).trim() === 'admin') {
+          hasAdmin = true;
+          break;
+        }
+      }
+    }
+  }
+  if (!hasAdmin) {
+    var nowStr = Utilities.formatDate(new Date(), "GMT+9", "yyyy-MM-dd HH:mm:ss");
+    // 평문 '1234'로 추가해두면, 바로 뒤의 checkAndHashPlainPasswords 함수가 SHA-256 해시로 자동 변환합니다.
+    adminSheet.appendRow([new Date().getTime(), 'admin', '마스터 관리자', '1234', nowStr]);
+    SpreadsheetApp.flush();
+  }
+
+  
   // 3. 실적 보고서 및 지급/설치 내역 시트
   var reportSheet = getOrCreateSheet(ss, '실적 보고서');
   var provisionSheet = getOrCreateSheet(ss, '지급/설치 내역');

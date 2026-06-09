@@ -566,10 +566,12 @@ function doPost(e) {
         for (var i = 0; i < requests.length; i++) {
           var req = requests[i];
           
-          // 메일 발송 조건 검사: 기존에 완료 상태가 아니었는데 이번에 완료로 저장되는 경우
+          // 메일 발송 조건 검사: 기존에 완료/반려 상태가 아니었는데 이번에 완료/반려로 전환되는 경우
           var oldStatus = oldStatusMap[req.id];
           if (req.status === '완료' && oldStatus !== '완료') {
             sendCompletionEmail(req);
+          } else if (req.status === '반려' && oldStatus !== '반려') {
+            sendRejectionEmail(req);
           }
           
           var row = [];
@@ -764,3 +766,66 @@ function sendCompletionEmail(req) {
     Logger.log("메일 발송 중 오류 발생: " + err.toString());
   }
 }
+
+// IT지원센터 전산 문의 처리 반려 안내 메일 전송
+function sendRejectionEmail(req) {
+  if (!req.email || !req.email.includes('@')) {
+    Logger.log("이메일 주소가 없거나 유효하지 않아 반려 알림 메일을 발송하지 못했습니다: " + (req.name || '알 수 없음'));
+    return;
+  }
+  
+  var subject = "[IT지원센터] 신청하신 전산 문의 건이 반려되었습니다. (No." + req.id + ")";
+  
+  // 프리미엄 HTML 이메일 템플릿 (Red / Crimson 계열 테마)
+  var htmlBody = 
+    "<div style='font-family: \"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #fca5a5; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);'>" +
+      "<div style='background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>" +
+        "<h2 style='margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.05em;'>전산 문의 반려 안내</h2>" +
+        "<p style='margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;'>요청하신 전산 업무 처리가 불가능하여 반려 처리되었습니다.</p>" +
+      "</div>" +
+      "<div style='padding: 28px 24px; background-color: #ffffff; color: #1e293b; line-height: 1.6;'>" +
+        "<p style='font-size: 15px; margin-top: 0;'>안녕하세요, <strong>" + req.name + "</strong> 님.</p>" +
+        "<p style='font-size: 14px; color: #475569;'>신청하신 전산 문의 건의 조치 결과(반려)를 아래와 같이 안내해 드립니다.</p>" +
+        
+        "<div style='background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;'>" +
+          "<table style='width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;'>" +
+            "<tr>" +
+              "<th style='width: 90px; padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>문의 구분</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 500;'>" + req.category + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>문의 제목</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 500;'>" + (req.title || '-') + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>상세 내용</th>" +
+              "<td style='padding: 6px 0; color: #334155; white-space: pre-wrap; font-size: 13px;'>" + req.desc + "</td>" +
+            "</tr>" +
+          "</table>" +
+        "</div>" +
+
+        "<h3 style='font-size: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; margin-top: 24px; color: #DC2626; font-weight: 700; margin-bottom: 12px;'>⚠️ 반려 사유</h3>" +
+        "<div style='background-color: #FEF2F2; border-left: 4px solid #DC2626; padding: 14px 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px; font-size: 14px; color: #991B1B; font-weight: 600;'>" +
+          (req.rejectReason || "상세 반려 사유가 입력되지 않았습니다.") +
+        "</div>" +
+
+        "<p style='font-size: 13.5px; color: #475569; margin-top: 28px;'>반려 사유를 보완하시어 대시보드에서 문의를 수정 및 재접수하시거나, 상세한 내용 협의는 IT지원센터로 연락 부탁드립니다. 감사합니다.</p>" +
+      "</div>" +
+      "<div style='background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11.5px; color: #94a3b8; border-top: 1px solid #f1f5f9;'>" +
+        "본 메일은 시스템에 의해 자동 발송된 송신전용 메일입니다.<br>" +
+        "© IT지원센터. All rights reserved." +
+      "</div>" +
+    "</div>";
+
+  try {
+    MailApp.sendEmail({
+      to: req.email,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    Logger.log("반려 알림 메일 발송 성공: " + req.email);
+  } catch (err) {
+    Logger.log("메일 발송 중 오류 발생: " + err.toString());
+  }
+}
+

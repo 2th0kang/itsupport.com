@@ -1,42 +1,11 @@
 /**
  * ========================================================
  * 이 코드는 구글 스프레드시트를 백엔드 서버(API)로 사용하기 위한 구글 앱스 스크립트 코드입니다.
- * 만약 로컬 서버(Node.js) 대신 구글 스프레드시트를 계속 사용하고 싶으시다면 아래 절차를 따르세요.
- * 
- * [적용 방법]
- * 1. 구글 스프레드시트를 새로 만듭니다.
- * 2. 상단 메뉴에서 [확장 프로그램] -> [Apps Script]를 클릭합니다.
- * 3. 기존에 있던 코드를 모두 지우고, 이 파일의 내용을 복사해서 붙여넣습니다.
- * 4. 우측 상단의 [배포] -> [새 배포]를 클릭합니다.
- * 5. 유형 선택: [웹 앱(Web App)]
- * 6. 액세스 권한: [모든 사용자(Anyone)] 로 설정하고 배포합니다.
- * 7. 발급받은 '웹 앱 URL'을 복사하여 대시보드의 script.js 파일 상단에 있는
- *    GOOGLE_SCRIPT_URL 변수에 붙여넣으세요.
  * ========================================================
  */
 
 // 구글 스프레드시트 주소를 아래 따옴표 안에 붙여넣으세요.
-var SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1FAPhHTQ7VsiCNcwET5HkR1RUNrIfqPJMX5R0WFDcFos/edit?gid=0#gid=0';
-
-// 유틸리티: 연동된 스프레드시트 객체 안전하게 획득하기
-function getSpreadsheet() {
-  try {
-    // 1. 스프레드시트 내에 바인딩되어 실행되는 경우 활성 시트 객체를 반환합니다.
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss) return ss;
-  } catch (err) {
-    // 웹앱 API 단독 실행 등으로 활성 시트를 바로 잡지 못하는 경우 예외 처리
-  }
-  
-  // 2. 활성 시트를 잡지 못하는 경우 URL 또는 ID 값을 파싱하여 수동으로 열어 반환합니다.
-  var url = SPREADSHEET_URL;
-  if (url.indexOf('docs.google.com/spreadsheets') !== -1) {
-    return SpreadsheetApp.openByUrl(url);
-  } else {
-    // URL이 아닌 ID 형식으로 적었을 경우 대응
-    return SpreadsheetApp.openById(url);
-  }
-}
+var SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1HWDa7XVGFh1-LGRKySZOR8Ci5gnK6nkgdIl4ELsjSSY/edit?gid=0#gid=0';
 
 // 유틸리티: 시트 이름으로 시트 가져오기 (없으면 생성)
 function getOrCreateSheet(ss, sheetName) {
@@ -49,71 +18,38 @@ function getOrCreateSheet(ss, sheetName) {
 
 // 안전장치: 기존 단일 시트 구조를 다중 시트 구조로 안전 전환, 컬럼 확장 및 초기화
 function getOrInitializeSheets(ss) {
-  // 1. 처리현황 시트 확보
-  var requestSheet = ss.getSheetByName('처리현황');
+  // 1. 문의접수 내역 시트 확보
+  var requestSheet = ss.getSheetByName('문의접수 내역');
   if (!requestSheet) {
     var sheets = ss.getSheets();
     if (sheets.length > 0) {
       requestSheet = sheets[0];
-      requestSheet.setName('처리현황');
+      requestSheet.setName('문의접수 내역');
     } else {
-      requestSheet = ss.insertSheet('처리현황');
+      requestSheet = ss.insertSheet('문의접수 내역');
     }
   }
   
-  // 2. 관리자 계정 관리 시트 확보 및 컬럼 세분화 마이그레이션
-  var adminSheet = ss.getSheetByName('관리자 계정 관리');
+  // 2. 실적 보고서 및 지급설치내역 시트
+  var reportSheet = getOrCreateSheet(ss, '실적 보고서');
+  var provisionSheet = getOrCreateSheet(ss, '지급설치내역');
+  
+  // 3. 관리자 계정 및 사용자 계정 시트 확보 및 초기화 (로그인 시스템용)
+  var adminSheet = ss.getSheetByName('관리자 계정');
   if (!adminSheet) {
-    var legacyAdminSheet = ss.getSheetByName('관리자');
-    if (legacyAdminSheet) {
-      adminSheet = legacyAdminSheet;
-      adminSheet.setName('관리자 계정 관리');
-    } else {
-      adminSheet = ss.insertSheet('관리자 계정 관리');
-    }
+    adminSheet = ss.insertSheet('관리자 계정');
+    adminSheet.appendRow(['id', 'name', 'username', 'password', 'date']);
   }
   
-  // 관리자 시트 헤더 컬럼 검증 및 마이그레이션 (['id', 'username', 'name', 'password', 'date'])
+  // 데이터 행 확인 후 마스터 계정이 없으면 강제 추가
   var adminData = adminSheet.getDataRange().getValues();
-  var targetHeaders = ['id', 'username', 'name', 'password', 'date'];
-  if (adminData.length > 0) {
-    var currentHeaders = adminData[0];
-    // 구형 컬럼 구조(username이 없음)인 경우 자동 마이그레이션
-    if (currentHeaders.indexOf('username') === -1) {
-      var newRows = [targetHeaders];
-      var nameIdx = currentHeaders.indexOf('name');
-      var idIdx = currentHeaders.indexOf('id');
-      var pwIdx = currentHeaders.indexOf('password');
-      var dateIdx = currentHeaders.indexOf('date');
-      
-      for (var i = 1; i < adminData.length; i++) {
-        var row = adminData[i];
-        var idVal = idIdx !== -1 ? row[idIdx] : new Date().getTime() + i;
-        var usernameVal = nameIdx !== -1 ? row[nameIdx] : 'admin';
-        var nameVal = usernameVal; // 기존의 로그인 ID를 임시 실명으로 복사
-        var pwVal = pwIdx !== -1 ? row[pwIdx] : '';
-        var dateVal = dateIdx !== -1 ? row[dateIdx] : '';
-        
-        newRows.push([idVal, usernameVal, nameVal, pwVal, dateVal]);
-      }
-      
-      adminSheet.clear();
-      adminSheet.getRange(1, 1, newRows.length, targetHeaders.length).setValues(newRows);
-      SpreadsheetApp.flush();
-    }
-  } else {
-    adminSheet.appendRow(targetHeaders);
-  }
-  
-  // 안전장치: 관리자 시트에 'admin' 계정이 없는 경우 자동으로 기본 관리자 계정(admin / 1234) 추가
-  var adminRows = adminSheet.getDataRange().getValues();
   var hasAdmin = false;
-  if (adminRows.length > 1) {
-    var headers = adminRows[0];
-    var usernameIdx = headers.indexOf('username');
-    if (usernameIdx !== -1) {
-      for (var i = 1; i < adminRows.length; i++) {
-        if (String(adminRows[i][usernameIdx]).trim() === 'admin') {
+  if (adminData.length > 1) {
+    var adminHeaders = adminData[0];
+    var userCol = adminHeaders.indexOf('username');
+    if (userCol !== -1) {
+      for (var k = 1; k < adminData.length; k++) {
+        if (adminData[k][userCol].toString().trim() === 'admin') {
           hasAdmin = true;
           break;
         }
@@ -121,245 +57,235 @@ function getOrInitializeSheets(ss) {
     }
   }
   if (!hasAdmin) {
-    var nowStr = Utilities.formatDate(new Date(), "GMT+9", "yyyy-MM-dd HH:mm:ss");
-    // 평문 '1234'로 추가해두면, 바로 뒤의 checkAndHashPlainPasswords 함수가 SHA-256 해시로 자동 변환합니다.
-    adminSheet.appendRow([new Date().getTime(), 'admin', '마스터 관리자', '1234', nowStr]);
-    SpreadsheetApp.flush();
+    adminSheet.appendRow([1, '마스터 관리자', 'admin', 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c', new Date()]);
   }
-
   
-  // 3. 실적 보고서 및 지급/설치 내역 시트
-  var reportSheet = getOrCreateSheet(ss, '실적 보고서');
-  var provisionSheet = getOrCreateSheet(ss, '지급/설치 내역');
-  
-  // 4. 사용자 db 시트 확보 및 자동 마이그레이션
-  var userSheet = ss.getSheetByName('사용자 db');
-  if (!userSheet) {
-    userSheet = ss.insertSheet('사용자 db');
+  var userDbSheet = ss.getSheetByName('사용자 계정');
+  if (!userDbSheet) {
+    userDbSheet = ss.insertSheet('사용자 계정');
+    userDbSheet.appendRow(['사원 ID', '이름', '소속팀', '이메일', '비밀번호']);
   }
-  var userData = userSheet.getDataRange().getValues();
-  var userHeaders = ['이름', '부서명', 'id', '비번', '계열사', '휴대전화', '이메일id', '이메일 도메인'];
   
-  if (userData.length > 0 && userData[0].length > 0 && userData[0][0] !== '') {
-    var currentHeaders = userData[0];
-    
-    // 현재 헤더 구조가 목표 헤더 구조와 일치하는지 대조
-    var needMigration = false;
-    if (currentHeaders.length !== userHeaders.length) {
-      needMigration = true;
-    } else {
-      for (var k = 0; k < userHeaders.length; k++) {
-        if (currentHeaders[k] !== userHeaders[k]) {
-          needMigration = true;
+  // 샘플 계정 testuser가 없으면 추가
+  var userData = userDbSheet.getDataRange().getValues();
+  var hasTestuser = false;
+  if (userData.length > 1) {
+    var userHeaders = userData[0];
+    var userIdColIdx = -1;
+    for (var u = 0; u < userHeaders.length; u++) {
+      var uh = userHeaders[u].toString().trim().toLowerCase();
+      if (uh === '사원 id' || uh === '사원id' || uh === '아이디' || uh === 'id' || uh === 'username' || uh === '사번' || uh === '사원번호') {
+        userIdColIdx = u;
+        break;
+      }
+    }
+    if (userIdColIdx !== -1) {
+      for (var k = 1; k < userData.length; k++) {
+        if (userData[k][userIdColIdx].toString().trim() === 'testuser') {
+          hasTestuser = true;
           break;
         }
       }
     }
-    
-    if (needMigration) {
-      // 기존 인덱스 감지
-      var oldNameIdx = currentHeaders.indexOf('이름');
-      var oldTeamIdx = currentHeaders.indexOf('부서명');
-      var oldIdIdx = currentHeaders.indexOf('id');
-      var oldPwIdx = currentHeaders.indexOf('비번');
-      var oldAffiliationIdx = currentHeaders.indexOf('계열사');
-      var oldPhoneIdx = currentHeaders.indexOf('휴대전화');
-      var oldEmailIdx = currentHeaders.indexOf('이메일');
-      var oldEmailIdIdx = currentHeaders.indexOf('이메일id');
-      var oldEmailDomainIdx = currentHeaders.indexOf('이메일 도메인');
-      
-      var newRows = [userHeaders]; // 첫 번째 행은 새로운 헤더 구조로 세팅
-      
-      for (var i = 1; i < userData.length; i++) {
-        var row = userData[i];
-        
-        var nameVal = oldNameIdx !== -1 ? row[oldNameIdx] : '';
-        var teamVal = oldTeamIdx !== -1 ? row[oldTeamIdx] : '';
-        var idVal = oldIdIdx !== -1 ? row[oldIdIdx] : '';
-        var pwVal = oldPwIdx !== -1 ? row[oldPwIdx] : '';
-        var affiliationVal = oldAffiliationIdx !== -1 ? row[oldAffiliationIdx] : '';
-        var phoneVal = oldPhoneIdx !== -1 ? row[oldPhoneIdx] : '';
-        
-        // 이메일 분리 연동 처리
-        var emailIdVal = '';
-        var emailDomainVal = '';
-        if (oldEmailIdIdx !== -1) {
-          emailIdVal = row[oldEmailIdIdx];
-        }
-        if (oldEmailDomainIdx !== -1) {
-          emailDomainVal = row[oldEmailDomainIdx];
-        }
-        // 만약 기존에 '이메일' 컬럼이 있었고 '이메일id' 값이 비어있다면, 기존 이메일을 쪼개서 채워줌
-        if (!emailIdVal && oldEmailIdx !== -1 && row[oldEmailIdx]) {
-          var emailFull = String(row[oldEmailIdx]);
-          if (emailFull.indexOf('@') !== -1) {
-            var parts = emailFull.split('@');
-            emailIdVal = parts[0];
-            emailDomainVal = parts[1];
-          }
-        }
-        
-        // 새로운 규격 순서로 행 빌드
-        newRows.push([nameVal, teamVal, idVal, pwVal, affiliationVal, phoneVal, emailIdVal, emailDomainVal]);
-      }
-      
-      userSheet.clear();
-      userSheet.getRange(1, 1, newRows.length, userHeaders.length).setValues(newRows);
-      SpreadsheetApp.flush();
-    }
-  } else {
-    // 시트가 아예 비어있는 경우
-    userSheet.appendRow(userHeaders);
+  }
+  if (!hasTestuser) {
+    userDbSheet.appendRow(['testuser', '테스트유저', '전산팀', 'testuser@swei.co.kr', '1234']);
   }
   
   return {
     requests: requestSheet,
-    admins: adminSheet,
     report: reportSheet,
     provision: provisionSheet,
-    userDb: userSheet
+    admin: adminSheet,
+    userDb: userDbSheet
   };
 }
 
-// 유틸리티: 문자열 SHA-256 단방향 해싱 함수 구현
-function sha256(input) {
-  // 안전장치: 인자가 없거나 null인 경우 빈 문자열로 대체하여 에러 방지
-  if (input === null || input === undefined) {
-    input = "";
-  }
-  var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input, Utilities.Charset.UTF_8);
-  var output = "";
+// SHA-256 해싱 함수
+function sha256(text) {
+  var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
+  var txtHash = '';
   for (var i = 0; i < rawHash.length; i++) {
     var byteVal = rawHash[i];
     if (byteVal < 0) byteVal += 256;
     var byteString = byteVal.toString(16);
-    if (byteString.length == 1) byteString = "0" + byteString;
-    output += byteString;
+    if (byteString.length == 1) byteString = '0' + byteString;
+    txtHash += byteString;
   }
-  return output;
+  return txtHash;
 }
 
-// 안전장치: 스프레드시트 관리자 및 사용자 db 시트에 직접 수기로 입력된 평문 비밀번호 자동 감지 및 암호화(SHA-256) 변환
-function checkAndHashPlainPasswords(sheets) {
-  // 1. 관리자 계정 시트 해싱
-  var adminSheet = sheets.admins;
-  var adminData = adminSheet.getDataRange().getValues();
-  if (adminData.length > 1) {
-    var headers = adminData[0];
-    var usernameIdx = headers.indexOf('username');
-    var pwIdx = headers.indexOf('password');
-    
-    if (usernameIdx !== -1 && pwIdx !== -1) {
-      var updated = false;
-      for (var i = 1; i < adminData.length; i++) {
-        var row = adminData[i];
-        var username = row[usernameIdx];
-        var password = String(row[pwIdx]);
-        
-        // 패스워드가 기록되어 있으나 64자 해시 형태가 아닐 경우 평문으로 간주
-        if (password && password.length !== 64) {
-          // '아이디 + ":" + 비밀번호' 형식으로 자동 해싱 후 시트 갱신
-          var hashedPassword = sha256(username + ":" + password);
-          adminSheet.getRange(i + 1, pwIdx + 1).setValue(hashedPassword);
-          updated = true;
+// 평문 비밀번호 자동 감지 및 보안 해싱
+function checkAndHashPlainPasswords(ss) {
+  var adminSheet = ss.getSheetByName('관리자 계정');
+  if (adminSheet) {
+    var data = adminSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      var headers = data[0];
+      var usernameColIdx = headers.indexOf('username');
+      var passwordColIdx = headers.indexOf('password');
+      if (usernameColIdx !== -1 && passwordColIdx !== -1) {
+        var updated = false;
+        for (var i = 1; i < data.length; i++) {
+          var username = data[i][usernameColIdx] ? data[i][usernameColIdx].toString().trim() : '';
+          var password = data[i][passwordColIdx] ? data[i][passwordColIdx].toString().trim() : '';
+          if (password && !/^[0-9a-f]{64}$/i.test(password)) {
+            var hash = sha256(username + ":" + password);
+            adminSheet.getRange(i + 1, passwordColIdx + 1).setValue(hash);
+            updated = true;
+          }
         }
-      }
-      if (updated) {
-        SpreadsheetApp.flush();
+        if (updated) {
+          SpreadsheetApp.flush();
+        }
       }
     }
   }
 
-  // 2. 사용자 db 시트 해싱
-  var userSheet = sheets.userDb;
-  var userData = userSheet.getDataRange().getValues();
-  if (userData.length > 1) {
-    var headers = userData[0];
-    var idIdx = headers.indexOf('id');
-    var pwIdx = headers.indexOf('비번');
-    
-    if (idIdx !== -1 && pwIdx !== -1) {
-      var updated = false;
-      for (var i = 1; i < userData.length; i++) {
-        var row = userData[i];
-        var userId = String(row[idIdx]);
-        var password = String(row[pwIdx]);
-        
-        // 패스워드가 기록되어 있으나 64자 해시 형태가 아닐 경우 평문으로 간주
-        if (password && password.length !== 64) {
-          // '아이디 + ":" + 비밀번호' 형식으로 자동 해싱 후 시트 갱신
-          var hashedPassword = sha256(userId + ":" + password);
-          userSheet.getRange(i + 1, pwIdx + 1).setValue(hashedPassword);
-          updated = true;
+  var userDbSheet = ss.getSheetByName('사용자 계정');
+  if (userDbSheet) {
+    var data = userDbSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      var headers = data[0];
+      var usernameColIdx = -1;
+      var passwordColIdx = -1;
+      
+      for (var j = 0; j < headers.length; j++) {
+        var h = headers[j].toString().trim().toLowerCase();
+        if (h === '사원 id' || h === '사원id' || h === '아이디' || h === 'id' || h === 'username' || h === '사번' || h === '사원번호') {
+          usernameColIdx = j;
+        } else if (h === '비밀번호' || h === 'password' || h === 'pw' || h === '비번' || h === '패스워드' || h === '암호') {
+          passwordColIdx = j;
         }
       }
-      if (updated) {
-        SpreadsheetApp.flush();
+      
+      if (usernameColIdx !== -1 && passwordColIdx !== -1) {
+        var updated = false;
+        for (var i = 1; i < data.length; i++) {
+          var username = data[i][usernameColIdx] ? data[i][usernameColIdx].toString().trim() : '';
+          var password = data[i][passwordColIdx] ? data[i][passwordColIdx].toString().trim() : '';
+          if (password && !/^[0-9a-f]{64}$/i.test(password)) {
+            var hash = sha256(username + ":" + password);
+            userDbSheet.getRange(i + 1, passwordColIdx + 1).setValue(hash);
+            updated = true;
+          }
+        }
+        if (updated) {
+          SpreadsheetApp.flush();
+        }
       }
     }
   }
 }
 
-// 유틸리티: 사용자가 유효한 관리자 또는 임직원인지 검증
-function validateUser(sheets, username, passwordHash) {
-  if (!username || !passwordHash) return false;
-  
-  // 1. 기본 마스터 관리자 검증
-  if (username === 'admin' && passwordHash === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
-    return true;
+// 다중 시트 바인딩 및 사용자 유효성 검사 (3단계 검증)
+function validateUser(ss, username, passwordHash) {
+  if (!username || !passwordHash) {
+    return { isValid: false };
   }
   
-  // 2. 관리자 계정 관리 시트 검증
-  var adminData = sheets.admins.getDataRange().getValues();
-  if (adminData.length > 1) {
-    var headers = adminData[0];
-    var usernameIdx = headers.indexOf('username');
-    var pwIdx = headers.indexOf('password');
-    if (usernameIdx !== -1 && pwIdx !== -1) {
-      for (var i = 1; i < adminData.length; i++) {
-        var row = adminData[i];
-        if (row[usernameIdx] === username && row[pwIdx] === passwordHash) {
-          return true;
+  passwordHash = passwordHash.toLowerCase();
+  
+  // 비밀번호 평문 해싱 동기화
+  checkAndHashPlainPasswords(ss);
+
+  // 1단계 & 2단계: 관리자 계정 검증
+  var adminSheet = ss.getSheetByName('관리자 계정');
+  if (adminSheet) {
+    var data = adminSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      var headers = data[0];
+      var usernameColIdx = headers.indexOf('username');
+      var passwordColIdx = headers.indexOf('password');
+      var nameColIdx = headers.indexOf('name');
+      
+      if (usernameColIdx !== -1 && passwordColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var dbUser = data[i][usernameColIdx].toString().trim();
+          var dbPass = data[i][passwordColIdx].toString().trim().toLowerCase();
+          var dbName = nameColIdx !== -1 ? data[i][nameColIdx].toString().trim() : '관리자';
+          
+          if (dbUser === username && dbPass === passwordHash) {
+            return {
+              isValid: true,
+              role: 'admin',
+              name: dbName,
+              team: '전산팀',
+              email: username + '@swei.co.kr'
+            };
+          }
         }
       }
     }
   }
-  
-  // 3. 사용자 db 시트 검증
-  var userData = sheets.userDb.getDataRange().getValues();
-  if (userData.length > 1) {
-    var headers = userData[0];
-    var idIdx = headers.indexOf('id');
-    var pwIdx = headers.indexOf('비번');
-    if (idIdx !== -1 && pwIdx !== -1) {
-      for (var i = 1; i < userData.length; i++) {
-        var row = userData[i];
-        if (String(row[idIdx]) === username && String(row[pwIdx]) === passwordHash) {
-          return true;
+
+  // 3단계: 일반 사용자 검증
+  var userDbSheet = ss.getSheetByName('사용자 계정');
+  if (userDbSheet) {
+    var data = userDbSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      var headers = data[0];
+      var usernameColIdx = -1;
+      var passwordColIdx = -1;
+      var nameColIdx = -1;
+      var teamColIdx = -1;
+      var emailColIdx = -1;
+      
+      for (var j = 0; j < headers.length; j++) {
+        var h = headers[j].toString().trim().toLowerCase();
+        if (h === '사원 id' || h === '사원id' || h === '아이디' || h === 'id' || h === 'username' || h === '사번' || h === '사원번호') {
+          usernameColIdx = j;
+        } else if (h === '비밀번호' || h === 'password' || h === 'pw' || h === '비번' || h === '패스워드' || h === '암호') {
+          passwordColIdx = j;
+        } else if (h === '이름' || h === 'name' || h === '성명') {
+          nameColIdx = j;
+        } else if (h === '소속팀' || h === '소속 팀' || h === '부서' || h === 'team' || h === 'dept' || h === '소속') {
+          teamColIdx = j;
+        } else if (h === '이메일' || h === 'email' || h === '메일') {
+          emailColIdx = j;
+        }
+      }
+      
+      if (usernameColIdx !== -1 && passwordColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var dbUser = data[i][usernameColIdx].toString().trim();
+          var dbPass = data[i][passwordColIdx].toString().trim().toLowerCase();
+          var dbName = nameColIdx !== -1 ? data[i][nameColIdx].toString().trim() : '';
+          var dbTeam = teamColIdx !== -1 ? data[i][teamColIdx].toString().trim() : '';
+          var dbEmail = emailColIdx !== -1 ? data[i][emailColIdx].toString().trim() : '';
+          
+          if (dbUser === username && dbPass === passwordHash) {
+            return {
+              isValid: true,
+              role: 'user',
+              name: dbName,
+              team: dbTeam,
+              email: dbEmail || (username + '@swei.co.kr')
+            };
+          }
         }
       }
     }
   }
-  
-  return false;
+
+  return { isValid: false };
 }
 
-// 데이터 조회 (GET 요청 처리)
+// 데이터 조회 (GET 요청 처리) - API 보안 적용
 function doGet(e) {
   try {
-    var ss = getSpreadsheet();
-    var sheets = getOrInitializeSheets(ss);
-    
-    // 수기 등록된 평문 암호 자동 보안 변환 실행
-    checkAndHashPlainPasswords(sheets);
-    
+    var ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
     var username = e.parameter.username;
     var passwordHash = e.parameter.passwordHash;
     
-    if (!validateUser(sheets, username, passwordHash)) {
+    // 유효 사용자 검증
+    var auth = validateUser(ss, username, passwordHash);
+    if (!auth.isValid) {
       return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'Unauthorized'}))
         .setMimeType(ContentService.MimeType.JSON);
     }
+    
+    var sheets = getOrInitializeSheets(ss);
     
     function parseSheetData(sheet) {
       var data = sheet.getDataRange().getValues();
@@ -373,7 +299,7 @@ function doGet(e) {
             var key = headers[j];
             var val = row[j];
             
-            if (key === 'images') {
+            if (key === 'images' || key === 'files' || key === 'fileAttachments') {
               try { obj[key] = val ? JSON.parse(val) : []; } catch(err) { obj[key] = []; }
             } else if (key === 'id') {
               obj[key] = Number(val);
@@ -387,7 +313,6 @@ function doGet(e) {
       return items;
     }
     
-    // 보안 강화: doGet 요청 시 관리자 목록(admins)은 웹 브라우저로 전송하지 않고 누락
     var result = {
       status: 'success',
       requests: parseSheetData(sheets.requests)
@@ -405,120 +330,234 @@ function doGet(e) {
 // 데이터 저장 및 보안 제어 (POST 요청 처리)
 function doPost(e) {
   try {
-    var ss = getSpreadsheet();
+    var ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
     var payload = JSON.parse(e.postData.contents);
     var sheets = getOrInitializeSheets(ss);
-    
-    // 수기 등록된 평문 암호 자동 보안 변환 실행
-    checkAndHashPlainPasswords(sheets);
-    
     var action = payload.action;
     
-    // --- 액션 A: 서버 사이드 로그인 검증 ---
+    // 0. 파일 구글 드라이브 업로드 액션 (사무용 파일 연동)
+    if (action === 'uploadFile') {
+      var filename = payload.filename;
+      var mimeType = payload.mimeType;
+      var base64Data = payload.base64;
+      
+      // 'IT전산문의_첨부파일' 폴더 탐색 및 신규 생성
+      var folderName = 'IT전산문의_첨부파일';
+      var folders = DriveApp.getFoldersByName(folderName);
+      var folder;
+      if (folders.hasNext()) {
+        folder = folders.next();
+      } else {
+        folder = DriveApp.createFolder(folderName);
+      }
+      
+      // Base64 데이터를 디코딩하여 드라이브에 파일 생성
+      var decoded = Utilities.base64Decode(base64Data);
+      var blob = Utilities.newBlob(decoded, mimeType, filename);
+      var file = folder.createFile(blob);
+      
+      // 링크 권한을 가진 누구나 보기 가능하도록 공유 허용
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        name: filename,
+        url: file.getUrl()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 1. 로그인 검증 처리 액션
     if (action === 'login') {
       var username = payload.username;
       var passwordHash = payload.passwordHash;
-      var isValid = false;
-      var role = '';
-      var name = '';
-      var team = '';
-      var email = '';
-      
-      // 1. 기본 관리자 계정 (admin:1234) 검증
-      if (username === 'admin' && passwordHash === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
-        isValid = true;
-        role = 'admin';
-        name = '마스터 관리자';
-        email = 'admin@swei.co.kr';
+      var auth = validateUser(ss, username, passwordHash);
+      if (auth.isValid) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success',
+          isValid: true,
+          role: auth.role,
+          name: auth.name,
+          team: auth.team,
+          email: auth.email
+        })).setMimeType(ContentService.MimeType.JSON);
       } else {
-        // 2. 스프레드시트의 '관리자 계정 관리' 데이터를 순회하며 일치 계정 확인
-        var adminData = sheets.admins.getDataRange().getValues();
-        if (adminData.length > 1) {
-          var headers = adminData[0];
-          var usernameIdx = headers.indexOf('username');
-          var nameIdx = headers.indexOf('name');
-          var pwIdx = headers.indexOf('password');
-          
-          if (usernameIdx !== -1 && pwIdx !== -1) {
-            for (var i = 1; i < adminData.length; i++) {
-              var row = adminData[i];
-              if (row[usernameIdx] === username && row[pwIdx] === passwordHash) {
-                isValid = true;
-                role = 'admin';
-                name = nameIdx !== -1 ? row[nameIdx] : username;
-                email = username + '@swei.co.kr';
-                break;
-              }
-            }
-          }
-        }
-        
-        // 3. 관리자가 아니면 '사용자 db' 시트에서 일치 계정 확인
-        if (!isValid) {
-          var userData = sheets.userDb.getDataRange().getValues();
-          if (userData.length > 1) {
-            var headers = userData[0];
-            var nameIdx = headers.indexOf('이름');
-            var idIdx = headers.indexOf('id');
-            var pwIdx = headers.indexOf('비번');
-            var teamIdx = headers.indexOf('부서명');
-            var emailIdIdx = headers.indexOf('이메일id'); // 신규 이메일id 인덱스 감지
-            var emailDomainIdx = headers.indexOf('이메일 도메인'); // 신규 이메일 도메인 인덱스 감지
-            
-            if (idIdx !== -1 && pwIdx !== -1) {
-              for (var i = 1; i < userData.length; i++) {
-                var row = userData[i];
-                if (String(row[idIdx]) === username && String(row[pwIdx]) === passwordHash) {
-                  isValid = true;
-                  role = 'user';
-                  name = nameIdx !== -1 ? row[nameIdx] : '';
-                  team = teamIdx !== -1 ? row[teamIdx] : '';
-                  
-                  // 이메일 id와 도메인을 재결합하여 전송
-                  var mailId = emailIdIdx !== -1 ? String(row[emailIdIdx]) : '';
-                  var mailDomain = emailDomainIdx !== -1 ? String(row[emailDomainIdx]) : '';
-                  if (mailId && mailDomain) {
-                    email = mailId + '@' + mailDomain;
-                  } else {
-                    email = username + '@swei.co.kr'; // 대체 기본값
-                  }
-                  break;
-                }
-              }
-            }
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success',
+          isValid: false
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    // 2. 신규 관리자 추가 액션
+    else if (action === 'addAdmin') {
+      var adminSheet = ss.getSheetByName('관리자 계정');
+      if (!adminSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '관리자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var username = payload.username.toString().trim();
+      var name = payload.name.toString().trim();
+      var password = payload.password.toString().trim(); // 이미 해싱된 상태
+      
+      var data = adminSheet.getDataRange().getValues();
+      var headers = data[0];
+      var usernameColIdx = headers.indexOf('username');
+      
+      if (usernameColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][usernameColIdx].toString().trim() === username) {
+            return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '이미 존재하는 관리자 ID입니다.'}))
+              .setMimeType(ContentService.MimeType.JSON);
           }
         }
       }
       
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'success', 
-        isValid: isValid,
-        role: role,
-        name: name,
-        team: team,
-        email: email
-      })).setMimeType(ContentService.MimeType.JSON);
-        
-    // --- 액션 B: 서버 사이드 관리자 계정 신규 추가 (실명, ID, 암호) ---
-    } else if (action === 'addAdmin') {
-      var username = payload.username; // 로그인 아이디
-      var name = payload.name;         // 실명
-      var password = payload.password; // SHA-256 해시값
+      var maxId = 0;
+      var idColIdx = headers.indexOf('id');
+      if (idColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var currentId = Number(data[i][idColIdx]);
+          if (!isNaN(currentId) && currentId > maxId) {
+            maxId = currentId;
+          }
+        }
+      }
+      var newId = maxId + 1;
       
-      var nowStr = Utilities.formatDate(new Date(), "GMT+9", "yyyy-MM-dd HH:mm:ss");
-      var newId = new Date().getTime();
-      
-      // 스프레드시트 '관리자 계정 관리' 시트에 한 줄 추가 (id, username, name, password, date)
-      sheets.admins.appendRow([newId, username, name, password, nowStr]);
+      var newRow = [];
+      for (var j = 0; j < headers.length; j++) {
+        var col = headers[j];
+        if (col === 'id') newRow.push(newId);
+        else if (col === 'name') newRow.push(name);
+        else if (col === 'username') newRow.push(username);
+        else if (col === 'password') newRow.push(password);
+        else if (col === 'date') newRow.push(new Date());
+        else newRow.push('');
+      }
+      adminSheet.appendRow(newRow);
       
       return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
         .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 3. 관리자 목록 조회 액션
+    else if (action === 'getAdmins') {
+      var adminSheet = ss.getSheetByName('관리자 계정');
+      if (!adminSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '관리자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var data = adminSheet.getDataRange().getValues();
+      var admins = [];
+      if (data.length > 1) {
+        var headers = data[0];
+        var idColIdx = headers.indexOf('id');
+        var nameColIdx = headers.indexOf('name');
+        var usernameColIdx = headers.indexOf('username');
+        var dateColIdx = headers.indexOf('date');
         
-    // --- 액션 C: 전산 문의 내역 목록 저장 ---
-    } else if (action === 'saveRequests') {
+        for (var i = 1; i < data.length; i++) {
+          var row = data[i];
+          var adminObj = {
+            id: idColIdx !== -1 ? Number(row[idColIdx]) : i,
+            name: nameColIdx !== -1 ? row[nameColIdx] : '',
+            username: usernameColIdx !== -1 ? row[usernameColIdx] : '',
+            date: dateColIdx !== -1 ? row[dateColIdx] : ''
+          };
+          admins.push(adminObj);
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'success', admins: admins}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 4. 관리자 삭제 액션
+    else if (action === 'deleteAdmin') {
+      var adminSheet = ss.getSheetByName('관리자 계정');
+      if (!adminSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '관리자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var adminId = Number(payload.adminId);
+      
+      var data = adminSheet.getDataRange().getValues();
+      var headers = data[0];
+      var idColIdx = headers.indexOf('id');
+      var usernameColIdx = headers.indexOf('username');
+      
+      if (idColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (Number(data[i][idColIdx]) === adminId) {
+            if (usernameColIdx !== -1 && data[i][usernameColIdx].toString().trim() === 'admin') {
+              return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '마스터 관리자 계정은 삭제할 수 없습니다.'}))
+                .setMimeType(ContentService.MimeType.JSON);
+            }
+            adminSheet.deleteRow(i + 1);
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 ID를 가진 관리자를 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 5. 관리자 비밀번호 변경 액션
+    else if (action === 'changeAdminPassword') {
+      var adminSheet = ss.getSheetByName('관리자 계정');
+      if (!adminSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '관리자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var adminId = Number(payload.adminId);
+      var newPasswordHash = payload.newPasswordHash;
+      
+      var data = adminSheet.getDataRange().getValues();
+      var headers = data[0];
+      var idColIdx = headers.indexOf('id');
+      var passwordColIdx = headers.indexOf('password');
+      
+      if (idColIdx !== -1 && passwordColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (Number(data[i][idColIdx]) === adminId) {
+            adminSheet.getRange(i + 1, passwordColIdx + 1).setValue(newPasswordHash);
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 ID를 가진 관리자를 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // --- 기존 액션: 전산 문의 내역 목록 저장 ---
+    else if (action === 'saveRequests') {
       var requests = payload.requests || [];
+      
+      // 1. 기존 데이터 읽기 (상태 변화 확인 및 중복 메일 발송 방지용)
+      var oldStatusMap = {};
+      try {
+        var oldData = sheets.requests.getDataRange().getValues();
+        if (oldData && oldData.length > 1) {
+          var oldHeaders = oldData[0];
+          var idColIdx = oldHeaders.indexOf('id');
+          var statusColIdx = oldHeaders.indexOf('status');
+          if (idColIdx !== -1 && statusColIdx !== -1) {
+            for (var k = 1; k < oldData.length; k++) {
+              var rowId = Number(oldData[k][idColIdx]);
+              var rowStatus = oldData[k][statusColIdx] ? oldData[k][statusColIdx].toString().trim() : '';
+              if (!isNaN(rowId)) {
+                oldStatusMap[rowId] = rowStatus;
+              }
+            }
+          }
+        }
+      } catch(err) {
+        Logger.log("기존 상태 읽기 오류 (무시하고 진행): " + err.toString());
+      }
+
       sheets.requests.clear();
-      var reqHeaders = ['id', 'name', 'team', 'email', 'category', 'title', 'desc', 'images', 'status', 'date', 'rejectReason', 'completeReason', 'resolution', 'password'];
+      var reqHeaders = ['id', 'name', 'team', 'email', 'category', 'title', 'desc', 'images', 'files', 'fileAttachments', 'status', 'date', 'rejectReason', 'completeReason', 'resolution', 'password'];
       
       if (requests.length === 0) {
         sheets.requests.appendRow(reqHeaders);
@@ -526,10 +565,17 @@ function doPost(e) {
         var reqRows = [reqHeaders];
         for (var i = 0; i < requests.length; i++) {
           var req = requests[i];
+          
+          // 메일 발송 조건 검사: 기존에 완료 상태가 아니었는데 이번에 완료로 저장되는 경우
+          var oldStatus = oldStatusMap[req.id];
+          if (req.status === '완료' && oldStatus !== '완료') {
+            sendCompletionEmail(req);
+          }
+          
           var row = [];
           for (var j = 0; j < reqHeaders.length; j++) {
             var key = reqHeaders[j];
-            if (key === 'images') {
+            if (key === 'images' || key === 'files' || key === 'fileAttachments') {
               row.push(JSON.stringify(req[key] || []));
             } else {
               row.push(req[key] !== undefined ? req[key] : '');
@@ -540,7 +586,7 @@ function doPost(e) {
         sheets.requests.getRange(1, 1, reqRows.length, reqHeaders.length).setValues(reqRows);
       }
       
-      // --- 2. 지급/설치 내역 자동 기록 ---
+      // --- 2. 지급설치내역 자동 기록 ---
       sheets.provision.clear();
       var provHeaders = ['일자', '요청자', '소속팀', '구분', '지급/설치내역', '해결과정'];
       var provRows = [provHeaders];
@@ -641,125 +687,80 @@ function doPost(e) {
       
       return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
         .setMimeType(ContentService.MimeType.JSON);
-        
-    // --- 액션 D: 관리자 목록 조회 (패스워드 해시값 필터링 및 보안 누락) ---
-    } else if (action === 'getAdmins') {
-      var adminData = sheets.admins.getDataRange().getValues();
-      var admins = [];
-      if (adminData.length > 1) {
-        var headers = adminData[0];
-        var idIdx = headers.indexOf('id');
-        var usernameIdx = headers.indexOf('username');
-        var nameIdx = headers.indexOf('name');
-        var dateIdx = headers.indexOf('date');
-        
-        for (var i = 1; i < adminData.length; i++) {
-          var row = adminData[i];
-          var obj = {
-            id: idIdx !== -1 ? Number(row[idIdx]) : '',
-            username: usernameIdx !== -1 ? row[usernameIdx] : '',
-            name: nameIdx !== -1 ? row[nameIdx] : '',
-            date: dateIdx !== -1 ? row[dateIdx] : ''
-          };
-          admins.push(obj);
-        }
-      }
-      
-      return ContentService.createTextOutput(JSON.stringify({status: 'success', admins: admins}))
-        .setMimeType(ContentService.MimeType.JSON);
-
-    // --- 액션 E: 관리자 계정 삭제 (마스터 admin 계정 삭제 불가 통제) ---
-    } else if (action === 'deleteAdmin') {
-      var adminId = Number(payload.adminId);
-      var adminData = sheets.admins.getDataRange().getValues();
-      var deleted = false;
-      
-      if (adminData.length > 1) {
-        var headers = adminData[0];
-        var idIdx = headers.indexOf('id');
-        var usernameIdx = headers.indexOf('username');
-        
-        if (idIdx !== -1) {
-          for (var j = 1; j < adminData.length; j++) {
-            var row = adminData[j];
-            var currentId = Number(row[idIdx]);
-            var currentUsername = usernameIdx !== -1 ? row[usernameIdx] : '';
-            
-            if (currentId === adminId) {
-              if (currentUsername === 'admin') {
-                return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '마스터 계정은 삭제할 수 없습니다.'}))
-                  .setMimeType(ContentService.MimeType.JSON);
-              }
-              
-              sheets.admins.deleteRow(j + 1);
-              deleted = true;
-              break;
-            }
-          }
-        }
-      }
-      
-      if (deleted) {
-        return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
-          .setMimeType(ContentService.MimeType.JSON);
-      } else {
-        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 관리자를 찾을 수 없습니다.'}))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      
-    // --- 액션 F: 관리자 비밀번호 직접 변경 ---
-    } else if (action === 'changeAdminPassword') {
-      var adminId = Number(payload.adminId);
-      var newPasswordHash = payload.newPasswordHash;
-      var adminData = sheets.admins.getDataRange().getValues();
-      var updated = false;
-      
-      if (adminData.length > 1) {
-        var headers = adminData[0];
-        var idIdx = headers.indexOf('id');
-        var pwIdx = headers.indexOf('password');
-        
-        if (idIdx !== -1 && pwIdx !== -1) {
-          for (var k = 1; k < adminData.length; k++) {
-            var row = adminData[k];
-            if (Number(row[idIdx]) === adminId) {
-              sheets.admins.getRange(k + 1, pwIdx + 1).setValue(newPasswordHash);
-              updated = true;
-              break;
-            }
-          }
-        }
-      }
-      
-      if (updated) {
-        return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
-          .setMimeType(ContentService.MimeType.JSON);
-      } else {
-        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 관리자를 찾을 수 없습니다.'}))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      
     } else {
       return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'Unknown action: ' + action}))
         .setMimeType(ContentService.MimeType.JSON);
     }
-      
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({status: 'error', message: err.toString()}))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-// CORS 설정 방지 (OPTIONS 요청 대응)
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.JSON);
-}
+// IT지원센터 전산 문의 처리 완료 안내 메일 전송
+function sendCompletionEmail(req) {
+  if (!req.email || !req.email.includes('@')) {
+    Logger.log("이메일 주소가 없거나 유효하지 않아 알림 메일을 발송하지 못했습니다: " + (req.name || '알 수 없음'));
+    return;
+  }
+  
+  var subject = "[IT지원센터] 신청하신 전산 문의 건의 처리가 완료되었습니다. (No." + req.id + ")";
+  
+  // 프리미엄 HTML 이메일 템플릿
+  var htmlBody = 
+    "<div style='font-family: \"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);'>" +
+      "<div style='background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>" +
+        "<h2 style='margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.05em;'>전산 문의 완료 안내</h2>" +
+        "<p style='margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;'>요청하신 전산 업무가 성공적으로 처리 완료되었습니다.</p>" +
+      "</div>" +
+      "<div style='padding: 28px 24px; background-color: #ffffff; color: #1e293b; line-height: 1.6;'>" +
+        "<p style='font-size: 15px; margin-top: 0;'>안녕하세요, <strong>" + req.name + "</strong> 님.</p>" +
+        "<p style='font-size: 14px; color: #475569;'>신청하신 전산 문의 내역의 조치 결과를 아래와 같이 안내해 드립니다.</p>" +
+        
+        "<div style='background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;'>" +
+          "<table style='width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;'>" +
+            "<tr>" +
+              "<th style='width: 90px; padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>문의 구분</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 500;'>" + req.category + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>문의 제목</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 500;'>" + (req.title || '-') + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>상세 내용</th>" +
+              "<td style='padding: 6px 0; color: #334155; white-space: pre-wrap; font-size: 13px;'>" + req.desc + "</td>" +
+            "</tr>" +
+          "</table>" +
+        "</div>" +
 
-// 수동 실행 및 마이그레이션 권한 승인을 위한 진입점 함수
-function runInitialize() {
-  var ss = getSpreadsheet();
-  var sheets = getOrInitializeSheets(ss);
-  checkAndHashPlainPasswords(sheets);
-  Logger.log("성공적으로 초기화 및 마이그레이션이 완료되었습니다.");
+        "<h3 style='font-size: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; margin-top: 24px; color: #4F46E5; font-weight: 700; margin-bottom: 12px;'>🛠️ 처리 완료 내역</h3>" +
+        "<div style='background-color: #EEF2FF; border-left: 4px solid #4F46E5; padding: 14px 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px; font-size: 14px; color: #312E81; font-weight: 600;'>" +
+          (req.completeReason || "정상적으로 완료되었습니다.") +
+        "</div>" +
+        
+        (req.resolution ? 
+          ("<div style='margin-bottom: 20px; font-size: 13.5px; color: #475569;'>" +
+            "<strong style='color: #1e293b; display: block; margin-bottom: 6px;'>📍 세부 조치 사항:</strong>" +
+            "<div style='padding: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; white-space: pre-wrap; line-height: 1.5; color: #334155;'>" + req.resolution + "</div>" +
+          "</div>") : "") +
+
+        "<p style='font-size: 13.5px; color: #475569; margin-top: 28px;'>추가적인 문의 사항이나 미흡한 부분이 있을 경우 IT지원센터로 연락 부탁드립니다. 감사합니다.</p>" +
+      "</div>" +
+      "<div style='background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11.5px; color: #94a3b8; border-top: 1px solid #f1f5f9;'>" +
+        "본 메일은 시스템에 의해 자동 발송된 송신전용 메일입니다.<br>" +
+        "© IT지원센터. All rights reserved." +
+      "</div>" +
+    "</div>";
+
+  try {
+    MailApp.sendEmail({
+      to: req.email,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    Logger.log("완료 알림 메일 발송 성공: " + req.email);
+  } catch (err) {
+    Logger.log("메일 발송 중 오류 발생: " + err.toString());
+  }
 }

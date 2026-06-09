@@ -1,17 +1,18 @@
 // ====================================================
 // 외부 데이터베이스 연동 완료 (JSONBlob 사용 - GitHub Pages 전용)
 // ====================================================
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyYz7UFjZrZ-UkEVSR-ubT-SkUJu2v4vXB0kbGmCfKbCYojbRyOLDTTMntTBYn4eC3/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBX1Lzq3s3ue5fmPpwwoLut98wKHN1Af9rcYjw1LdaC7Z6UD51qZwKpqlm06poxFooFg/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 권한 및 사용자 정보 상태 관리
-    let userRole = localStorage.getItem('itUserRole') || ''; // 'admin', 'user', ''
-    let isAdmin = userRole === 'admin';
+    // 권한 및 사용자 정보 상태 관리 (로컬 세션 연동 복구)
+    let userRole = localStorage.getItem('itUserRole') || ''; 
+    let isAdmin = (userRole === 'admin');
     let userLoginId = localStorage.getItem('itUserLoginId') || '';
     let userPasswordHash = localStorage.getItem('itUserPasswordHash') || '';
     
     let requests = [];
     let attachedImages = []; // 첨부된 이미지 데이터 배열 (Base64)
+    let attachedFiles = [];  // 첨부된 일반 파일 배열 [{name, mimeType, base64, url}]
 
     // 로딩 오버레이 제어
     const loadingOverlay = document.getElementById('loadingOverlay');
@@ -97,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemLogin = document.getElementById('nav-item-login');
     const navItemLogout = document.getElementById('nav-item-logout');
     const navItemRequest = document.getElementById('nav-item-request');
+    const navItemDashboard = document.getElementById('nav-item-dashboard');
     const navItemAdminList = document.getElementById('nav-item-admin-list');
 
     // 일반 사용자 로그인 시 입력 폼에 로그인 정보 자동 세팅
@@ -114,6 +116,24 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (reqTeamEl) {
                 reqTeamEl.disabled = false;
+                
+                // 스프레드시트의 소속팀 텍스트가 HTML select 옵션에 없는 경우 동적으로 추가
+                if (teamVal) {
+                    let hasOption = false;
+                    for (let i = 0; i < reqTeamEl.options.length; i++) {
+                        if (reqTeamEl.options[i].value === teamVal) {
+                            hasOption = true;
+                            break;
+                        }
+                    }
+                    if (!hasOption) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = teamVal;
+                        newOpt.textContent = teamVal;
+                        reqTeamEl.appendChild(newOpt);
+                    }
+                }
+                
                 reqTeamEl.value = teamVal;
                 reqTeamEl.disabled = true;
             }
@@ -124,47 +144,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 네비게이션 및 메뉴 활성화 업데이트
+    // 네비게이션 및 메뉴 활성화 업데이트 (역할별 권한 가시성 복구)
     function updateNavVisibility() {
-        const reqTab = document.getElementById('nav-item-request');
-        const dashTab = document.querySelector('.nav-links a[data-target="page-dashboard"]').parentNode;
         const appContainer = document.querySelector('.app-container');
         
-        reqTab.style.display = 'none';
-        dashTab.style.display = 'none';
-        navItemReport.style.display = 'none';
-        if (navItemProvision) navItemProvision.style.display = 'none';
-        if (navItemAdminList) navItemAdminList.style.display = 'none';
-        navItemLogin.style.display = 'none';
-        navItemLogout.style.display = 'none';
-        
         if (!userRole) {
-            // 1. 비로그인 상태: 로그인 페이지만 노출 및 전체 화면 레이아웃 적용
+            // 비로그인 상태일 때는 사이드바 잠금 및 로그인 탭만 노출
+            if (navItemRequest) navItemRequest.style.display = 'none';
+            if (navItemDashboard) navItemDashboard.style.display = 'none';
+            if (navItemReport) navItemReport.style.display = 'none';
+            if (navItemProvision) navItemProvision.style.display = 'none';
+            if (navItemAdminList) navItemAdminList.style.display = 'none';
+            if (navItemLogin) navItemLogin.style.display = 'block';
+            if (navItemLogout) navItemLogout.style.display = 'none';
             if (appContainer) appContainer.classList.add('logged-out');
-            navItemLogin.style.display = 'block';
-            
-            pages.forEach(page => page.classList.remove('active'));
-            document.getElementById('page-login').classList.add('active');
-            navLinks.forEach(nav => nav.classList.remove('active'));
-            const loginLink = document.querySelector('.nav-links a[data-target="page-login"]');
-            if (loginLink) loginLink.classList.add('active');
         } else if (userRole === 'admin') {
-            // 2. 관리자 상태
-            if (appContainer) appContainer.classList.remove('logged-out');
-            dashTab.style.display = 'block';
-            navItemReport.style.display = 'block';
+            // 관리자 권한 탭 노출 제어 (문의 접수 불가)
+            if (navItemRequest) navItemRequest.style.display = 'none';
+            if (navItemDashboard) navItemDashboard.style.display = 'block';
+            if (navItemReport) navItemReport.style.display = 'block';
             if (navItemProvision) navItemProvision.style.display = 'block';
             if (navItemAdminList) navItemAdminList.style.display = 'block';
-            navItemLogout.style.display = 'block';
-        } else if (userRole === 'user') {
-            // 3. 일반 사용자 상태
+            if (navItemLogin) navItemLogin.style.display = 'none';
+            if (navItemLogout) navItemLogout.style.display = 'block';
             if (appContainer) appContainer.classList.remove('logged-out');
-            reqTab.style.display = 'block';
-            dashTab.style.display = 'block';
-            navItemLogout.style.display = 'block';
-            
-            // 로그인 정보 폼에 바인딩
-            fillUserInfo();
+        } else if (userRole === 'user') {
+            // 일반 사용자 권한 탭 노출 제어 (문의 접수, 처리 현황만 노출)
+            if (navItemRequest) navItemRequest.style.display = 'block';
+            if (navItemDashboard) navItemDashboard.style.display = 'block';
+            if (navItemReport) navItemReport.style.display = 'none';
+            if (navItemProvision) navItemProvision.style.display = 'none';
+            if (navItemAdminList) navItemAdminList.style.display = 'none';
+            if (navItemLogin) navItemLogin.style.display = 'none';
+            if (navItemLogout) navItemLogout.style.display = 'block';
+            if (appContainer) appContainer.classList.remove('logged-out');
         }
     }
     updateNavVisibility();
@@ -175,19 +188,23 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const targetId = link.getAttribute('data-target');
             
-            // 비로그인 상태일 때는 로그인 탭 이외의 클릭 강제 차단
-            if (!userRole && targetId !== 'page-login') {
-                return;
-            }
-            
-            // 일반 사용자는 관리자 탭 클릭 불가
-            if (userRole === 'user' && ['page-report', 'page-provision', 'page-admin-list'].includes(targetId)) {
-                return;
-            }
-            
-            // 관리자는 문의 접수 탭 클릭 불가
-            if (userRole === 'admin' && targetId === 'page-request') {
-                return;
+            // 역할 및 로그인 기반 권한 체크 통제
+            if (!userRole) {
+                if (targetId !== 'page-login') {
+                    alert('로그인이 필요한 서비스입니다.');
+                    document.querySelector('.nav-links a[data-target="page-login"]').click();
+                    return;
+                }
+            } else if (userRole === 'user') {
+                if (!['page-request', 'page-dashboard', 'page-login'].includes(targetId)) {
+                    alert('접근 권한이 없습니다. (일반 사용자 전용 페이지가 아님)');
+                    return;
+                }
+            } else if (userRole === 'admin') {
+                if (targetId === 'page-request') {
+                    alert('관리자는 문의를 직접 접수할 수 없습니다.');
+                    return;
+                }
             }
 
             navLinks.forEach(nav => nav.classList.remove('active'));
@@ -210,16 +227,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 새로고침 시 로그인 상태에 맞춰 첫 화면을 강제 포커싱
+    // 새로고침 시 권한에 따른 초기 탭 포커싱
+    const activeTab = localStorage.getItem('activeTab');
     if (!userRole) {
         const loginTabLink = document.querySelector(`.nav-links a[data-target="page-login"]`);
         if (loginTabLink) loginTabLink.click();
-    } else if (userRole === 'admin') {
-        const dashTabLink = document.querySelector(`.nav-links a[data-target="page-dashboard"]`);
-        if (dashTabLink) dashTabLink.click();
     } else {
-        const reqTabLink = document.querySelector(`.nav-links a[data-target="page-request"]`);
-        if (reqTabLink) reqTabLink.click();
+        if (activeTab && document.querySelector(`.nav-links a[data-target="${activeTab}"]`)) {
+            // 권한 유효성 체크 후 탭 복원
+            if (userRole === 'user' && ['page-request', 'page-dashboard'].includes(activeTab)) {
+                document.querySelector(`.nav-links a[data-target="${activeTab}"]`).click();
+            } else if (userRole === 'admin' && ['page-dashboard', 'page-report', 'page-provision', 'page-admin-list'].includes(activeTab)) {
+                document.querySelector(`.nav-links a[data-target="${activeTab}"]`).click();
+            } else {
+                // 권한 범위 밖인 경우 권한에 따른 기본값 지정
+                if (userRole === 'admin') {
+                    document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+                } else {
+                    document.querySelector('.nav-links a[data-target="page-request"]').click();
+                }
+            }
+        } else {
+            if (userRole === 'admin') {
+                document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
+            } else {
+                document.querySelector('.nav-links a[data-target="page-request"]').click();
+            }
+        }
     }
 
     // 로그인 로그아웃 처리
@@ -431,6 +465,174 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==========================================
+    // 일반 파일 첨부 처리 (PDF, Excel, PPT, Word 등)
+    // ==========================================
+    const reqFileInput = document.getElementById('reqFileInput');
+    const fileListContainer = document.getElementById('fileListContainer');
+
+    // 파일명 또는 MIME 타입에 따른 아이콘 반환
+    function getFileIcon(filename, mimeType) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const mime = (mimeType || '').toLowerCase();
+        
+        if (ext === 'pdf' || mime.includes('pdf')) return '<i class="fa-solid fa-file-pdf" style="color:#e74c3c;"></i>';
+        if (['xls', 'xlsx', 'xlsb', 'xlsm', 'csv'].includes(ext) || mime.includes('sheet') || mime.includes('excel') || mime.includes('csv')) return '<i class="fa-solid fa-file-excel" style="color:#27ae60;"></i>';
+        if (['ppt', 'pptx', 'ppsx'].includes(ext) || mime.includes('presentation') || mime.includes('powerpoint')) return '<i class="fa-solid fa-file-powerpoint" style="color:#e67e22;"></i>';
+        if (['doc', 'docx'].includes(ext) || mime.includes('word') || mime.includes('document')) return '<i class="fa-solid fa-file-word" style="color:#2980b9;"></i>';
+        if (['hwp', 'hwpx'].includes(ext)) return '<i class="fa-solid fa-file-word" style="color:#1abc9c;"></i>'; // 아래한글 전용 청록색 아이콘
+        if (['zip', 'rar', '7z'].includes(ext) || mime.includes('zip') || mime.includes('compressed')) return '<i class="fa-solid fa-file-zipper" style="color:#8e44ad;"></i>';
+        if (ext === 'txt' || mime.includes('text')) return '<i class="fa-solid fa-file-lines" style="color:#7f8c8d;"></i>';
+        return '<i class="fa-solid fa-file" style="color:#95a5a6;"></i>';
+    }
+
+    // 파일 목록 UI 렌더링
+    window.renderFilePreviews = function() {
+        if (!fileListContainer) return;
+        fileListContainer.innerHTML = '';
+        attachedFiles.forEach((f, index) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex; flex-direction:column; gap:4px; padding:10px 12px; background:#f8fafc; border:1px solid var(--border-color); border-radius:8px;';
+
+            let statusHtml = '';
+            if (f.status === 'uploading') {
+                statusHtml = `<span style="color:var(--primary); font-size:0.82rem; font-weight:600;"><i class="fa-solid fa-spinner fa-spin"></i> 업로드 중 (${f.progress || 0}%)</span>`;
+            } else if (f.status === 'done' && f.url) {
+                statusHtml = `<a href="${f.url}" target="_blank" style="color:#27ae60; font-size:0.82rem; text-decoration:none; font-weight:600;"><i class="fa-solid fa-check"></i> 업로드 완료</a>`;
+            } else if (f.status === 'pending') {
+                // 상세 에러 텍스트를 말풍선(title)과 함께 화면에 명시
+                statusHtml = `<span style="color:#e67e22; font-size:0.82rem; font-weight:600;" title="${f.errorMsg || '알 수 없는 오류'}"><i class="fa-solid fa-triangle-exclamation"></i> 실패 (${f.errorMsg || '오류'})</span>`;
+            }
+
+            div.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px; width:100%;">
+                    ${getFileIcon(f.name, f.mimeType)}
+                    <span style="flex:1; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${f.name}">${f.name}</span>
+                    ${statusHtml}
+                    <button type="button" data-file-index="${index}" style="background:none; border:none; cursor:pointer; color:var(--text-muted); padding:2px 6px; font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="upload-progress-wrapper">
+                    <div class="upload-progress-bar ${f.status}" style="width: ${f.progress || 0}%;"></div>
+                </div>
+            `;
+            fileListContainer.appendChild(div);
+        });
+
+        // 삭제 버튼 이벤트 바인딩
+        fileListContainer.querySelectorAll('button[data-file-index]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.getAttribute('data-file-index'));
+                attachedFiles.splice(idx, 1);
+                window.renderFilePreviews();
+            });
+        });
+    };
+
+    // 파일 1개를 구글 드라이브에 업로드하고 URL 및 에러 정보 반환
+    async function uploadFileToGoogleDrive(fileObj) {
+        if (!GOOGLE_SCRIPT_URL) return { url: null, error: '웹 앱 URL 없음' };
+        try {
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'uploadFile',
+                    filename: fileObj.name,
+                    mimeType: fileObj.mimeType,
+                    base64: fileObj.base64
+                })
+            });
+            if (!response.ok) {
+                return { url: null, error: `서버 응답 오류 (HTTP ${response.status})` };
+            }
+            const result = await response.json();
+            if (result.status === 'success') {
+                return { url: result.url, error: null };
+            } else {
+                return { url: null, error: result.message || '서버 처리 실패' };
+            }
+        } catch (err) {
+            console.error('파일 업로드 오류:', err);
+            return { url: null, error: '네트워크 연결/CORS 오류' };
+        }
+    }
+
+    // 파일 선택 시 처리 (FileReader → Base64 변환 후 배열에 추가 + 즉시 드라이브 업로드)
+    if (reqFileInput) {
+        reqFileInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            const MAX_FILES = 3;
+            const availableSlots = MAX_FILES - attachedFiles.length;
+            if (availableSlots <= 0) {
+                alert('파일은 최대 3개까지만 첨부할 수 있습니다.');
+                reqFileInput.value = '';
+                return;
+            }
+            const toProcess = files.slice(0, availableSlots);
+            if (files.length > availableSlots) {
+                alert(`파일은 최대 3개까지 첨부 가능합니다. ${toProcess.length}개만 추가됩니다.`);
+            }
+
+            for (const file of toProcess) {
+                // 파일 크기 제한: 10MB
+                if (file.size > 10 * 1024 * 1024) {
+                    alert(`'${file.name}' 파일이 10MB를 초과합니다. 더 작은 파일을 선택해 주세요.`);
+                    continue;
+                }
+                const fileObj = { name: file.name, mimeType: file.type || 'application/octet-stream', base64: '', url: '', status: 'uploading', progress: 0, errorMsg: '' };
+                attachedFiles.push(fileObj);
+                window.renderFilePreviews();
+
+                // 1단계: FileReader로 Base64 변환
+                fileObj.progress = 10;
+                window.renderFilePreviews();
+
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        // data:mimeType;base64,XXX 에서 XXX 부분만 추출
+                        const b64 = ev.target.result.split(',')[1];
+                        resolve(b64);
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                fileObj.base64 = base64;
+                fileObj.progress = 25;
+                window.renderFilePreviews();
+
+                // 2단계: 구글 드라이브 업로드 개시 및 가짜 프로그레스 타이머 작동 (부드럽게 90%까지 채우기)
+                let progressInterval = setInterval(() => {
+                    if (fileObj.progress < 90) {
+                        fileObj.progress += 3;
+                        window.renderFilePreviews();
+                    }
+                }, 150);
+
+                showLoading();
+                const uploadResult = await uploadFileToGoogleDrive(fileObj);
+                hideLoading();
+
+                clearInterval(progressInterval);
+
+                // 3단계: 결과 처리
+                if (uploadResult.url) {
+                    fileObj.url = uploadResult.url;
+                    fileObj.status = 'done';
+                    fileObj.progress = 100;
+                } else {
+                    fileObj.url = '';
+                    fileObj.status = 'pending';
+                    fileObj.progress = 0;
+                    fileObj.errorMsg = uploadResult.error || '업로드 실패';
+                }
+                fileObj.base64 = ''; // 업로드 완료 후 base64 데이터 제거 (메모리 절약)
+                window.renderFilePreviews();
+            }
+            reqFileInput.value = '';
+        });
+    }
+
     window.renderImagePreviews = function () {
         if (!imagePreviewContainer) return;
         imagePreviewContainer.innerHTML = '';
@@ -455,7 +657,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 폼 제출 이벤트 (문의 접수)
-    // 비동기로 저장해야 하므로 async 달아줍니다.
     if (requestForm) {
         requestForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -490,10 +691,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
                 }
             } else {
+                // 첨부 파일 URL 목록 추출 (드라이브 업로드 완료된 파일)
+                const fileAttachments = attachedFiles
+                    .filter(f => f.url)
+                    .map(f => ({ name: f.name, url: f.url }));
+
                 const newRequest = {
                     id: generateId(),
                     name, team, email, category, title, desc,
-                    images: [...attachedImages], status: '접수', date: new Date().toISOString(), password
+                    images: [...attachedImages],
+                    fileAttachments: fileAttachments,
+                    status: '접수', date: new Date().toISOString(), password
                 };
 
                 requests.push(newRequest);
@@ -504,7 +712,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('문의가 성공적으로 접수되었습니다.');
                     requestForm.reset();
                     attachedImages = [];
+                    attachedFiles = [];
                     renderImagePreviews();
+                    window.renderFilePreviews();
                     document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
                 }
             }
@@ -519,7 +729,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const editReqId = document.getElementById('editReqId');
         if(editReqId) editReqId.value = '';
         attachedImages = [];
+        attachedFiles = [];
         renderImagePreviews();
+        if (window.renderFilePreviews) window.renderFilePreviews();
         const btnSubmit = document.getElementById('btnSubmitRequest');
         if(btnSubmit) btnSubmit.innerHTML = '<i class="fa-solid fa-paper-plane"></i> 문의 등록하기';
         const btnCancel = document.getElementById('btnCancelEdit');
@@ -648,13 +860,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const thStatusCol = document.getElementById('thStatusCol');
         const thDeleteCol = document.getElementById('thDeleteCol');
         if (isAdmin) {
-            btnClearData.style.display = 'inline-block';
-            thDeleteCol.style.display = 'table-cell';
-            thStatusCol.textContent = '상태 관리';
+            if (btnClearData) btnClearData.style.display = 'inline-block';
+            if (thDeleteCol) thDeleteCol.style.display = 'table-cell';
+            if (thStatusCol) thStatusCol.textContent = '상태 관리';
         } else {
-            btnClearData.style.display = 'none';
-            thDeleteCol.style.display = 'none';
-            thStatusCol.textContent = '진행 상태';
+            if (btnClearData) btnClearData.style.display = 'none';
+            if (thDeleteCol) thDeleteCol.style.display = 'none';
+            if (thStatusCol) thStatusCol.textContent = '진행 상태';
         }
 
         let filteredRequests = requests;
@@ -979,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isAdmin) updateReport();
         }
-    }
+    };
 
     window.deleteReq = async function (id) {
         if (!isAdmin) return;
@@ -988,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await saveDataAsync();
             renderTable();
         }
-    }
+    };
 
     function updateReport() {
         if (!isAdmin) return;
@@ -1173,6 +1385,47 @@ document.addEventListener('DOMContentLoaded', () => {
             imagesHtml = `<div class="detail-row" style="flex-direction:column; align-items:flex-start;"><span class="detail-label" style="margin-bottom:8px;">첨부 이미지 (<i class="fa-solid fa-paperclip"></i> ${req.images.length}장)</span> <div class="detail-images" style="width:100%; margin-top:8px;">${imgs}</div></div>`;
         }
 
+        // 첨부 파일(드라이브 업로드) 링크 렌더링
+        let filesHtml = '';
+        if (req.fileAttachments && req.fileAttachments.length > 0) {
+            const fileLinks = req.fileAttachments.map(f => {
+                const ext = f.name.split('.').pop().toLowerCase();
+                let iconColor = '#7f8c8d';
+                let iconClass = 'fa-file';
+                if (ext === 'pdf') {
+                    iconColor = '#e74c3c';
+                    iconClass = 'fa-file-pdf';
+                } else if (['xls','xlsx','xlsb','xlsm','csv'].includes(ext)) {
+                    iconColor = '#27ae60';
+                    iconClass = 'fa-file-excel';
+                } else if (['ppt','pptx','ppsx'].includes(ext)) {
+                    iconColor = '#e67e22';
+                    iconClass = 'fa-file-powerpoint';
+                } else if (['doc','docx'].includes(ext)) {
+                    iconColor = '#2980b9';
+                    iconClass = 'fa-file-word';
+                } else if (['hwp','hwpx'].includes(ext)) {
+                    iconColor = '#1abc9c';
+                    iconClass = 'fa-file-word';
+                } else if (['zip','rar','7z'].includes(ext)) {
+                    iconColor = '#8e44ad';
+                    iconClass = 'fa-file-zipper';
+                } else if (ext === 'txt') {
+                    iconColor = '#7f8c8d';
+                    iconClass = 'fa-file-lines';
+                }
+                return `<a href="${f.url}" target="_blank" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; text-decoration:none; color:var(--text-main); font-size:0.9rem; transition:background 0.2s;" onmouseover="this.style.background='#eef2ff'" onmouseout="this.style.background='#f8fafc'">
+                    <i class="fa-solid ${iconClass}" style="color:${iconColor}; font-size:1.1rem;"></i>
+                    <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f.name}</span>
+                    <i class="fa-solid fa-external-link-alt" style="color:var(--text-muted); font-size:0.8rem;"></i>
+                </a>`;
+            }).join('');
+            filesHtml = `<div class="detail-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="detail-label" style="margin-bottom:8px;"><i class="fa-solid fa-paperclip"></i> 첨부 파일 (${req.fileAttachments.length}개)</span>
+                <div style="width:100%; display:flex; flex-direction:column; gap:6px; margin-top:4px;">${fileLinks}</div>
+            </div>`;
+        }
+
         modalBody.innerHTML = `
             <div class="detail-row"><span class="detail-label">No</span> <span class="detail-value">${req.id}</span></div>
             <div class="detail-row"><span class="detail-label">요청자</span> <span class="detail-value">${req.name}</span></div>
@@ -1182,6 +1435,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="detail-row"><span class="detail-label">문의 제목</span> <span class="detail-value" style="font-weight: 600;">${req.title || '-'}</span></div>
             <div class="detail-row"><span class="detail-label">상세 내용</span> <span class="detail-value" style="white-space: pre-wrap;">${req.desc}</span></div>
             ${imagesHtml}
+            ${filesHtml}
             <div class="detail-row"><span class="detail-label">접수 일자</span> <span class="detail-value">${dateStr}</span></div>
             <div class="detail-row"><span class="detail-label">현재 상태</span> <span class="detail-value"><span class="tag status-${req.status}">${req.status}</span></span></div>
             ${rejectHtml}
@@ -1189,11 +1443,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="detail-label" style="margin-bottom: 12px; width: 100%;">진행률</span> 
                 ${stepHtml}
             </div>
-            ${!isAdmin ? `
+            <!-- 일반 사용자의 경우, 본인이 작성한 글인 경우에만 상세 모달 하단에 수정/삭제 단추 노출 -->
+            ${(userRole === 'user' && req.email === localStorage.getItem('itUserEmail')) ? `
             <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
                 <button type="button" onclick="handleUserEditRequest(${req.id})" style="padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 4px; background-color: white; color: var(--text-color); cursor: pointer; font-weight: 500;">수정</button>
                 <button type="button" onclick="handleUserDeleteRequest(${req.id})" style="padding: 8px 16px; border: 1px solid #fecaca; border-radius: 4px; background-color: #fef2f2; color: var(--danger); cursor: pointer; font-weight: 500;">삭제</button>
-            </div>` : ''}
+            </div>
+            ` : ''}
         `;
         modalOverlay.classList.add('show');
     };
@@ -1228,12 +1484,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const req = requests.find(r => r.id == id);
         if (!req) return;
         
-        const currentUserEmail = localStorage.getItem('itUserEmail') || '';
-        if (req.email !== currentUserEmail) {
-            alert('본인이 작성한 문의만 수정할 수 있습니다.');
-            return;
-        }
-        
         modalOverlay.classList.remove('show');
         
         // 수정 모드 진입
@@ -1245,9 +1495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const reqTeamEl = document.getElementById('reqTeam');
         if (reqTeamEl) {
-            reqTeamEl.disabled = false;
             reqTeamEl.value = req.team;
-            reqTeamEl.disabled = true;
         }
         
         if (req.email) {
@@ -1261,6 +1509,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         attachedImages = req.images ? [...req.images] : [];
         renderImagePreviews();
+        // 수정 모드 진입 시 기존 첨부 파일 복원
+        attachedFiles = req.fileAttachments ? req.fileAttachments.map(f => ({ ...f, status: 'done', mimeType: '', base64: '' })) : [];
+        if (window.renderFilePreviews) window.renderFilePreviews();
 
         document.getElementById('btnSubmitRequest').innerHTML = '<i class="fa-solid fa-check"></i> 수정 완료';
         const btnCancel = document.getElementById('btnCancelEdit');
@@ -1270,12 +1521,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.handleUserDeleteRequest = async function(id) {
         const req = requests.find(r => r.id == id);
         if (!req) return;
-        
-        const currentUserEmail = localStorage.getItem('itUserEmail') || '';
-        if (req.email !== currentUserEmail) {
-            alert('본인이 작성한 문의만 삭제할 수 있습니다.');
-            return;
-        }
         
         modalOverlay.classList.remove('show');
         if (confirm('정말 이 문의를 삭제하시겠습니까?')) {

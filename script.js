@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemRequest = document.getElementById('nav-item-request');
     const navItemDashboard = document.getElementById('nav-item-dashboard');
     const navItemAdminList = document.getElementById('nav-item-admin-list');
+    const navUserProfile = document.getElementById('nav-user-profile');
+    const profileName = document.getElementById('profileName');
+    const profileRole = document.getElementById('profileRole');
 
     // 일반 사용자 로그인 시 입력 폼에 로그인 정보 자동 세팅
     function fillUserInfo() {
@@ -157,27 +160,45 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navItemAdminList) navItemAdminList.style.display = 'none';
             if (navItemLogin) navItemLogin.style.display = 'block';
             if (navItemLogout) navItemLogout.style.display = 'none';
+            if (navUserProfile) navUserProfile.style.display = 'none';
             if (appContainer) appContainer.classList.add('logged-out');
-        } else if (userRole === 'admin') {
-            // 관리자 권한 탭 노출 제어 (문의 접수 불가)
-            if (navItemRequest) navItemRequest.style.display = 'none';
-            if (navItemDashboard) navItemDashboard.style.display = 'block';
-            if (navItemReport) navItemReport.style.display = 'block';
-            if (navItemProvision) navItemProvision.style.display = 'block';
-            if (navItemAdminList) navItemAdminList.style.display = 'block';
-            if (navItemLogin) navItemLogin.style.display = 'none';
-            if (navItemLogout) navItemLogout.style.display = 'block';
-            if (appContainer) appContainer.classList.remove('logged-out');
-        } else if (userRole === 'user') {
-            // 일반 사용자 권한 탭 노출 제어 (문의 접수, 처리 현황만 노출)
-            if (navItemRequest) navItemRequest.style.display = 'block';
-            if (navItemDashboard) navItemDashboard.style.display = 'block';
-            if (navItemReport) navItemReport.style.display = 'none';
-            if (navItemProvision) navItemProvision.style.display = 'none';
-            if (navItemAdminList) navItemAdminList.style.display = 'none';
-            if (navItemLogin) navItemLogin.style.display = 'none';
-            if (navItemLogout) navItemLogout.style.display = 'block';
-            if (appContainer) appContainer.classList.remove('logged-out');
+        } else {
+            // 로그인 상태일 때는 사용자 프로필 갱신 및 표시
+            if (navUserProfile) {
+                const nameVal = localStorage.getItem('itUserName') || '';
+                const teamVal = localStorage.getItem('itUserTeam') || '';
+                const roleText = userRole === 'admin' ? '관리자' : '임직원';
+                
+                if (profileName) {
+                    profileName.textContent = nameVal + ' 님';
+                }
+                if (profileRole) {
+                    profileRole.textContent = teamVal ? `${teamVal} (${roleText})` : roleText;
+                }
+                navUserProfile.style.display = 'flex';
+            }
+
+            if (userRole === 'admin') {
+                // 관리자 권한 탭 노출 제어 (문의 접수 불가)
+                if (navItemRequest) navItemRequest.style.display = 'none';
+                if (navItemDashboard) navItemDashboard.style.display = 'block';
+                if (navItemReport) navItemReport.style.display = 'block';
+                if (navItemProvision) navItemProvision.style.display = 'block';
+                if (navItemAdminList) navItemAdminList.style.display = 'block';
+                if (navItemLogin) navItemLogin.style.display = 'none';
+                if (navItemLogout) navItemLogout.style.display = 'block';
+                if (appContainer) appContainer.classList.remove('logged-out');
+            } else if (userRole === 'user') {
+                // 일반 사용자 권한 탭 노출 제어 (문의 접수, 처리 현황만 노출)
+                if (navItemRequest) navItemRequest.style.display = 'block';
+                if (navItemDashboard) navItemDashboard.style.display = 'block';
+                if (navItemReport) navItemReport.style.display = 'none';
+                if (navItemProvision) navItemProvision.style.display = 'none';
+                if (navItemAdminList) navItemAdminList.style.display = 'none';
+                if (navItemLogin) navItemLogin.style.display = 'none';
+                if (navItemLogout) navItemLogout.style.display = 'block';
+                if (appContainer) appContainer.classList.remove('logged-out');
+            }
         }
     }
     updateNavVisibility();

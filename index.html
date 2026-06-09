@@ -29,6 +29,14 @@
             
             <div style="flex-grow: 1;"></div>
             <li id="nav-item-login"><a href="#" data-target="page-login"><i class="fa-solid fa-right-to-bracket"></i> 로그인</a></li>
+            <!-- 로그인 사용자 프로필 표시 영역 -->
+            <div id="nav-user-profile" class="user-info" style="display: none; margin-bottom: 15px; margin-top: 15px;">
+                <div class="avatar"><i class="fa-solid fa-circle-user"></i></div>
+                <div class="details">
+                    <span class="name" id="profileName">-</span>
+                    <span class="role" id="profileRole">-</span>
+                </div>
+            </div>
             <li id="nav-item-logout" style="display: none;"><a href="#" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</a></li>
         </ul>
     </nav>

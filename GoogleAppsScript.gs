@@ -800,7 +800,8 @@ function sendCompletionEmail(req) {
     MailApp.sendEmail({
       to: req.email,
       subject: subject,
-      htmlBody: htmlBody
+      htmlBody: htmlBody,
+      name: "성우전자 전산"
     });
     Logger.log("완료 알림 메일 발송 성공: " + req.email);
   } catch (err) {
@@ -862,7 +863,8 @@ function sendRejectionEmail(req) {
     MailApp.sendEmail({
       to: req.email,
       subject: subject,
-      htmlBody: htmlBody
+      htmlBody: htmlBody,
+      name: "성우전자 전산"
     });
     Logger.log("반려 알림 메일 발송 성공: " + req.email);
   } catch (err) {
@@ -951,7 +953,8 @@ function sendNewRequestAlertToAdmins(req, adminEmails) {
     MailApp.sendEmail({
       to: adminEmails.join(','),
       subject: subject,
-      htmlBody: htmlBody
+      htmlBody: htmlBody,
+      name: "성우전자 전산"
     });
     Logger.log("관리자 알림 메일 발송 성공 (수신인 수: " + adminEmails.length + ")");
   } catch (err) {

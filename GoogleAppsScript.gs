@@ -57,22 +57,11 @@ function getOrInitializeSheets(ss) {
     }
   }
   
-  // 데이터 행 확인 후 마스터 계정이 없으면 강제 추가
+  // 데이터 행 확인 후 계정이 아예 없으면 마스터 계정 강제 추가
   var adminData = adminSheet.getDataRange().getValues();
   var adminHeaders = adminData[0];
-  var hasAdmin = false;
-  if (adminData.length > 1) {
-    var userCol = adminHeaders.indexOf('username');
-    if (userCol !== -1) {
-      for (var k = 1; k < adminData.length; k++) {
-        if (adminData[k][userCol].toString().trim() === 'admin') {
-          hasAdmin = true;
-          break;
-        }
-      }
-    }
-  }
-  if (!hasAdmin) {
+  
+  if (adminData.length <= 1) {
     var masterRow = [];
     for (var m = 0; m < adminHeaders.length; m++) {
       var hName = adminHeaders[m].toString().trim();
@@ -85,6 +74,38 @@ function getOrInitializeSheets(ss) {
       else masterRow.push('');
     }
     adminSheet.appendRow(masterRow);
+  } else {
+    // [자가 복구] ID가 1인 마스터 계정이 여러 개 존재하는 경우 복구 로직
+    var idColIdx = adminHeaders.indexOf('id');
+    var usernameColIdx = adminHeaders.indexOf('username');
+    if (idColIdx !== -1 && usernameColIdx !== -1) {
+      var masterCount = 0;
+      var maxId = 0;
+      var adminRowIndexesToUpdate = [];
+      
+      for (var k = 1; k < adminData.length; k++) {
+        var currentId = Number(adminData[k][idColIdx]);
+        if (!isNaN(currentId)) {
+          if (currentId > maxId) maxId = currentId;
+          if (currentId === 1) {
+            masterCount++;
+            // username이 'admin'인 중복 마스터 후보 수집
+            if (adminData[k][usernameColIdx].toString().trim() === 'admin') {
+              adminRowIndexesToUpdate.push(k + 1); // 1-indexed row number
+            }
+          }
+        }
+      }
+      
+      // ID 1이 중복이고, username이 'admin'인 복구 후보가 있는 경우 ID 재조정
+      if (masterCount > 1 && adminRowIndexesToUpdate.length > 0) {
+        for (var idx = 0; idx < adminRowIndexesToUpdate.length; idx++) {
+          maxId++;
+          adminSheet.getRange(adminRowIndexesToUpdate[idx], idColIdx + 1).setValue(maxId);
+        }
+        SpreadsheetApp.flush();
+      }
+    }
   }
   
   var userDbSheet = ss.getSheetByName('사용자 계정');

@@ -38,14 +38,30 @@ function getOrInitializeSheets(ss) {
   var adminSheet = ss.getSheetByName('관리자 계정');
   if (!adminSheet) {
     adminSheet = ss.insertSheet('관리자 계정');
-    adminSheet.appendRow(['id', 'name', 'username', 'password', 'date']);
+    adminSheet.appendRow(['id', 'name', 'username', 'password', 'email', 'date']);
+  } else {
+    // 기존 시트에 email 컬럼이 없으면 헤더에 자동 추가 (자가 복구)
+    var adminData = adminSheet.getDataRange().getValues();
+    var adminHeaders = adminData[0] || [];
+    if (adminHeaders.indexOf('email') === -1) {
+      var lastCol = adminSheet.getLastColumn();
+      adminSheet.getRange(1, lastCol + 1).setValue('email');
+      // 기존 관리자들의 기본 메일 채워주기
+      if (adminData.length > 1) {
+        var userColIdx = adminHeaders.indexOf('username');
+        for (var idx = 2; idx <= adminData.length; idx++) {
+          var userVal = adminSheet.getRange(idx, userColIdx + 1).getValue().toString().trim();
+          adminSheet.getRange(idx, lastCol + 1).setValue(userVal ? (userVal + "@swei.co.kr") : "admin@swei.co.kr");
+        }
+      }
+    }
   }
   
   // 데이터 행 확인 후 마스터 계정이 없으면 강제 추가
   var adminData = adminSheet.getDataRange().getValues();
+  var adminHeaders = adminData[0];
   var hasAdmin = false;
   if (adminData.length > 1) {
-    var adminHeaders = adminData[0];
     var userCol = adminHeaders.indexOf('username');
     if (userCol !== -1) {
       for (var k = 1; k < adminData.length; k++) {
@@ -57,7 +73,18 @@ function getOrInitializeSheets(ss) {
     }
   }
   if (!hasAdmin) {
-    adminSheet.appendRow([1, '마스터 관리자', 'admin', 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c', new Date()]);
+    var masterRow = [];
+    for (var m = 0; m < adminHeaders.length; m++) {
+      var hName = adminHeaders[m].toString().trim();
+      if (hName === 'id') masterRow.push(1);
+      else if (hName === 'name') masterRow.push('마스터 관리자');
+      else if (hName === 'username') masterRow.push('admin');
+      else if (hName === 'password') masterRow.push('f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c');
+      else if (hName === 'email') masterRow.push('admin@swei.co.kr');
+      else if (hName === 'date') masterRow.push(new Date());
+      else masterRow.push('');
+    }
+    adminSheet.appendRow(masterRow);
   }
   
   var userDbSheet = ss.getSheetByName('사용자 계정');
@@ -198,12 +225,14 @@ function validateUser(ss, username, passwordHash) {
       var usernameColIdx = headers.indexOf('username');
       var passwordColIdx = headers.indexOf('password');
       var nameColIdx = headers.indexOf('name');
+      var emailColIdx = headers.indexOf('email');
       
       if (usernameColIdx !== -1 && passwordColIdx !== -1) {
         for (var i = 1; i < data.length; i++) {
           var dbUser = data[i][usernameColIdx].toString().trim();
           var dbPass = data[i][passwordColIdx].toString().trim().toLowerCase();
           var dbName = nameColIdx !== -1 ? data[i][nameColIdx].toString().trim() : '관리자';
+          var dbEmail = emailColIdx !== -1 ? data[i][emailColIdx].toString().trim() : (dbUser + '@swei.co.kr');
           
           if (dbUser === username && dbPass === passwordHash) {
             return {
@@ -211,7 +240,7 @@ function validateUser(ss, username, passwordHash) {
               role: 'admin',
               name: dbName,
               team: '전산팀',
-              email: username + '@swei.co.kr'
+              email: dbEmail
             };
           }
         }
@@ -398,6 +427,7 @@ function doPost(e) {
       var username = payload.username.toString().trim();
       var name = payload.name.toString().trim();
       var password = payload.password.toString().trim(); // 이미 해싱된 상태
+      var email = payload.email ? payload.email.toString().trim() : (username + "@swei.co.kr");
       
       var data = adminSheet.getDataRange().getValues();
       var headers = data[0];
@@ -431,6 +461,7 @@ function doPost(e) {
         else if (col === 'name') newRow.push(name);
         else if (col === 'username') newRow.push(username);
         else if (col === 'password') newRow.push(password);
+        else if (col === 'email') newRow.push(email);
         else if (col === 'date') newRow.push(new Date());
         else newRow.push('');
       }
@@ -454,6 +485,7 @@ function doPost(e) {
         var idColIdx = headers.indexOf('id');
         var nameColIdx = headers.indexOf('name');
         var usernameColIdx = headers.indexOf('username');
+        var emailColIdx = headers.indexOf('email');
         var dateColIdx = headers.indexOf('date');
         
         for (var i = 1; i < data.length; i++) {
@@ -462,6 +494,7 @@ function doPost(e) {
             id: idColIdx !== -1 ? Number(row[idColIdx]) : i,
             name: nameColIdx !== -1 ? row[nameColIdx] : '',
             username: usernameColIdx !== -1 ? row[usernameColIdx] : '',
+            email: emailColIdx !== -1 ? row[emailColIdx] : '',
             date: dateColIdx !== -1 ? row[dateColIdx] : ''
           };
           admins.push(adminObj);
@@ -534,6 +567,9 @@ function doPost(e) {
     else if (action === 'saveRequests') {
       var requests = payload.requests || [];
       
+      // 관리자 이메일 목록 미리 로드
+      var adminEmails = getAllAdminEmails(ss);
+      
       // 1. 기존 데이터 읽기 (상태 변화 확인 및 중복 메일 발송 방지용)
       var oldStatusMap = {};
       try {
@@ -572,6 +608,11 @@ function doPost(e) {
             sendCompletionEmail(req);
           } else if (req.status === '반려' && oldStatus !== '반려') {
             sendRejectionEmail(req);
+          }
+          
+          // 신규 접수 알림 메일 발송: 기존 문의 내역에 존재하지 않고(status가 정의되지 않음) 신규 등록되는 경우
+          if (oldStatus === undefined) {
+            sendNewRequestAlertToAdmins(req, adminEmails);
           }
           
           var row = [];
@@ -826,6 +867,95 @@ function sendRejectionEmail(req) {
     Logger.log("반려 알림 메일 발송 성공: " + req.email);
   } catch (err) {
     Logger.log("메일 발송 중 오류 발생: " + err.toString());
+  }
+}
+
+// 등록된 모든 관리자의 유효한 이메일 목록 가져오기
+function getAllAdminEmails(ss) {
+  var emails = [];
+  var adminSheet = ss.getSheetByName('관리자 계정');
+  if (adminSheet) {
+    var data = adminSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      var headers = data[0];
+      var emailColIdx = headers.indexOf('email');
+      if (emailColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var email = data[i][emailColIdx] ? data[i][emailColIdx].toString().trim() : '';
+          if (email && email.includes('@')) {
+            emails.push(email);
+          }
+        }
+      }
+    }
+  }
+  return emails;
+}
+
+// 관리자에게 신규 전산 문의 접수 알림 메일 발송
+function sendNewRequestAlertToAdmins(req, adminEmails) {
+  if (!adminEmails || adminEmails.length === 0) {
+    Logger.log("관리자 이메일 목록이 비어있어 알림 메일을 발송하지 못했습니다.");
+    return;
+  }
+  
+  var subject = "[IT지원센터] 🔔 새로운 전산 문의가 접수되었습니다. (No." + req.id + ")";
+  
+  // 딥 퍼플 테마 적용 프리미엄 HTML 이메일 템플릿
+  var htmlBody = 
+    "<div style='font-family: \"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #dcd6f7; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);'>" +
+      "<div style='background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); padding: 28px 24px; text-align: center; color: #ffffff;'>" +
+        "<h2 style='margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.05em;'>🔔 신규 문의 접수 알림</h2>" +
+        "<p style='margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;'>새로운 IT 지원 요청이 등록되었습니다. 상세 내용을 확인해 주세요.</p>" +
+      "</div>" +
+      "<div style='padding: 28px 24px; background-color: #ffffff; color: #1e293b; line-height: 1.6;'>" +
+        "<p style='font-size: 15px; margin-top: 0; font-weight: 600;'>안녕하세요, IT지원센터 관리자님.</p>" +
+        "<p style='font-size: 14px; color: #475569;'>임직원으로부터 신규 전산 문의가 접수되어 안내해 드립니다.</p>" +
+        
+        "<div style='background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;'>" +
+          "<table style='width: 100%; border-collapse: collapse; font-size: 14px; text-align: left;'>" +
+            "<tr>" +
+              "<th style='width: 90px; padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>요청 번호</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 700;'>No." + req.id + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>요청자</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 500;'>" + req.name + " (" + (req.team || '소속 없음') + ")</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>문의 구분</th>" +
+              "<td style='padding: 6px 0; color: #1e293b; font-weight: 500;'>" + req.category + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>문의 제목</th>" +
+              "<td style='padding: 6px 0; color: #4338ca; font-weight: 600;'>" + (req.title || '-') + "</td>" +
+            "</tr>" +
+            "<tr>" +
+              "<th style='padding: 6px 0; font-weight: 600; color: #64748b; vertical-align: top;'>상세 내용</th>" +
+              "<td style='padding: 6px 0; color: #334155; white-space: pre-wrap; font-size: 13px; line-height: 1.5;'>" + req.desc + "</td>" +
+            "</tr>" +
+          "</table>" +
+        "</div>" +
+
+        "<div style='text-align: center; margin: 30px 0 10px 0;'>" +
+          "<a href='" + SPREADSHEET_URL + "' target='_blank' style='background-color: #4338ca; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 6px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);'>구글 스프레드시트 열기</a>" +
+        "</div>" +
+      "</div>" +
+      "<div style='background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11.5px; color: #94a3b8; border-top: 1px solid #f1f5f9;'>" +
+        "본 메일은 시스템에 의해 자동 발송된 송신전용 메일입니다.<br>" +
+        "© IT지원센터. All rights reserved." +
+      "</div>" +
+    "</div>";
+
+  try {
+    MailApp.sendEmail({
+      to: adminEmails.join(','),
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    Logger.log("관리자 알림 메일 발송 성공 (수신인 수: " + adminEmails.length + ")");
+  } catch (err) {
+    Logger.log("관리자 알림 메일 발송 중 오류 발생: " + err.toString());
   }
 }
 

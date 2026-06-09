@@ -1671,6 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = document.getElementById('newAdminId').value.trim();
             const pw = document.getElementById('newAdminPw').value;
             const pwConfirm = document.getElementById('newAdminPwConfirm').value;
+            const email = document.getElementById('newAdminEmail').value.trim();
 
             if (pw !== pwConfirm) {
                 alert('비밀번호가 서로 일치하지 않습니다.');
@@ -1697,7 +1698,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: 'addAdmin',
                             username: id,
                             name: realName,
-                            password: hashHex
+                            password: hashHex,
+                            email: email
                         })
                     });
                     if (response.ok) {
@@ -1757,7 +1759,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '';
 
         if (admins.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 관리자가 없습니다.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 관리자가 없습니다.</td></tr>`;
             return;
         }
 
@@ -1790,6 +1792,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${index + 1}</td>
                 <td><strong>${admin.name || '-'}</strong></td>
                 <td><code>${admin.username || '-'}</code></td>
+                <td>${admin.email || '-'}</td>
                 <td>${dateStr}</td>
                 <td>
                     <div style="display:flex; align-items:center; justify-content:center;">

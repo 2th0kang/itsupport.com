@@ -2244,6 +2244,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <a href="#" class="chat-action-link" id="chatLinkToRequest"><i class="fa-solid fa-circle-question"></i> 해결되지 않음 (문의 접수하기)</a>
                             </div>
                         `;
+                    } else if (result.status === 'error') {
+                        console.error("백엔드 AI 오류:", result.message);
+                        return `
+                            <p>⚠️ AI 답변을 처리하는 도중 서버 오류가 발생했습니다.</p>
+                            <div style="font-size:0.85rem; color:#e11d48; background:#fff1f2; padding:12px; border-radius:8px; border:1px solid #ffe4e6; line-height:1.5; margin:8px 0;">
+                                <strong>서버 반환 에러 메세지:</strong><br>
+                                <code style="word-break:break-all; font-family:monospace; display:block; margin-top:4px;">${result.message}</code>
+                            </div>
+                            <p style="font-size:0.82rem; color:var(--text-muted);">※ 해당 오류 메시지(예: 429 Quota Exceeded, 403 인증 오류 등)를 토대로 할당량 부족이나 설정 오류 여부를 판단하실 수 있습니다.</p>
+                        `;
                     }
                 }
             } catch (err) {

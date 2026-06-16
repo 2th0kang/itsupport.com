@@ -100,6 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemRequest = document.getElementById('nav-item-request');
     const navItemDashboard = document.getElementById('nav-item-dashboard');
     const navItemAdminList = document.getElementById('nav-item-admin-list');
+    const navItemChatbot = document.getElementById('nav-item-chatbot');
+    const navItemAdminRegister = document.getElementById('nav-item-admin-register');
     const navUserProfile = document.getElementById('nav-user-profile');
     const profileName = document.getElementById('profileName');
     const profileRole = document.getElementById('profileRole');
@@ -158,6 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navItemReport) navItemReport.style.display = 'none';
             if (navItemProvision) navItemProvision.style.display = 'none';
             if (navItemAdminList) navItemAdminList.style.display = 'none';
+            if (navItemChatbot) navItemChatbot.style.display = 'none';
+            if (navItemAdminRegister) navItemAdminRegister.style.display = 'none';
             if (navItemLogin) navItemLogin.style.display = 'block';
             if (navItemLogout) navItemLogout.style.display = 'none';
             if (navUserProfile) navUserProfile.style.display = 'none';
@@ -185,16 +189,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (navItemReport) navItemReport.style.display = 'block';
                 if (navItemProvision) navItemProvision.style.display = 'block';
                 if (navItemAdminList) navItemAdminList.style.display = 'block';
+                if (navItemChatbot) navItemChatbot.style.display = 'none';
+                if (navItemAdminRegister) navItemAdminRegister.style.display = 'block';
                 if (navItemLogin) navItemLogin.style.display = 'none';
                 if (navItemLogout) navItemLogout.style.display = 'block';
                 if (appContainer) appContainer.classList.remove('logged-out');
             } else if (userRole === 'user') {
-                // 일반 사용자 권한 탭 노출 제어 (문의 접수, 처리 현황만 노출)
+                // 일반 사용자 권한 탭 노출 제어 (문의 접수, 처리 현황, 챗봇 노출)
                 if (navItemRequest) navItemRequest.style.display = 'block';
                 if (navItemDashboard) navItemDashboard.style.display = 'block';
                 if (navItemReport) navItemReport.style.display = 'none';
                 if (navItemProvision) navItemProvision.style.display = 'none';
                 if (navItemAdminList) navItemAdminList.style.display = 'none';
+                if (navItemChatbot) navItemChatbot.style.display = 'block';
+                if (navItemAdminRegister) navItemAdminRegister.style.display = 'none';
                 if (navItemLogin) navItemLogin.style.display = 'none';
                 if (navItemLogout) navItemLogout.style.display = 'block';
                 if (appContainer) appContainer.classList.remove('logged-out');
@@ -217,13 +225,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             } else if (userRole === 'user') {
-                if (!['page-request', 'page-dashboard', 'page-login'].includes(targetId)) {
+                if (!['page-request', 'page-dashboard', 'page-chatbot', 'page-login'].includes(targetId)) {
                     alert('접근 권한이 없습니다. (일반 사용자 전용 페이지가 아님)');
                     return;
                 }
             } else if (userRole === 'admin') {
-                if (targetId === 'page-request') {
-                    alert('관리자는 문의를 직접 접수할 수 없습니다.');
+                if (targetId === 'page-request' || targetId === 'page-chatbot') {
+                    alert('관리자는 이 기능을 이용할 수 없습니다.');
                     return;
                 }
             }
@@ -256,9 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         if (activeTab && document.querySelector(`.nav-links a[data-target="${activeTab}"]`)) {
             // 권한 유효성 체크 후 탭 복원
-            if (userRole === 'user' && ['page-request', 'page-dashboard'].includes(activeTab)) {
+            if (userRole === 'user' && ['page-request', 'page-dashboard', 'page-chatbot'].includes(activeTab)) {
                 document.querySelector(`.nav-links a[data-target="${activeTab}"]`).click();
-            } else if (userRole === 'admin' && ['page-dashboard', 'page-report', 'page-provision', 'page-admin-list'].includes(activeTab)) {
+            } else if (userRole === 'admin' && ['page-dashboard', 'page-report', 'page-provision', 'page-admin-list', 'page-admin-register'].includes(activeTab)) {
                 document.querySelector(`.nav-links a[data-target="${activeTab}"]`).click();
             } else {
                 // 권한 범위 밖인 경우 권한에 따른 기본값 지정
@@ -417,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const requestForm = document.getElementById('requestForm');
+    const adminRegisterForm = document.getElementById('adminRegisterForm');
     const requestTableBody = document.querySelector('#requestTable tbody');
 
     const elTotal = document.getElementById('kpiTotal');
@@ -738,6 +747,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.renderFilePreviews();
                     document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
                 }
+            }
+        });
+    }
+
+    // 관리자 직접 구두 문의 등록 제출 이벤트
+    if (adminRegisterForm) {
+        adminRegisterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('adminReqName').value.trim();
+            const team = document.getElementById('adminReqTeam').value;
+            const emailId = document.getElementById('adminReqEmailId').value.trim();
+            const email = emailId ? `${emailId}@swei.co.kr` : '';
+            const category = document.getElementById('adminReqCategory').value;
+            const title = document.getElementById('adminReqTitle').value.trim();
+            const desc = document.getElementById('adminReqDesc').value.trim();
+            const status = document.getElementById('adminReqStatus').value;
+            const reason = document.getElementById('adminReqReason').value.trim();
+            const resolution = document.getElementById('adminReqResolution').value.trim();
+            const password = 'admin_direct';
+
+            const newRequest = {
+                id: generateId(),
+                name, team, email, category, title, desc,
+                images: [],
+                fileAttachments: [],
+                status,
+                date: new Date().toISOString(),
+                password
+            };
+
+            if (resolution) {
+                newRequest.resolution = resolution;
+            }
+
+            if (reason) {
+                if (status === '완료') {
+                    newRequest.completeReason = reason;
+                } else if (status === '반려') {
+                    newRequest.rejectReason = reason;
+                }
+            }
+
+            requests.push(newRequest);
+            const success = await saveDataAsync(); // 구글 서버에 전송 대기 또는 로컬 저장
+
+            if (success) {
+                renderTable();
+                alert('구두 문의 및 조치 내역이 성공적으로 등록되었습니다.');
+                adminRegisterForm.reset();
+                document.querySelector('.nav-links a[data-target="page-dashboard"]').click();
             }
         });
     }
@@ -1996,6 +2056,316 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('관리자 비밀번호가 성공적으로 변경되었습니다!');
                 if (changePasswordModal) changePasswordModal.classList.remove('show');
                 loadAdminList(); // 완료 후 목록 갱신
+            }
+        });
+    }
+
+    // ==========================================
+    // 챗봇 (Chatbot) 가이드 로직 구현
+    // ==========================================
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const btnSendChat = document.getElementById('btnSendChat');
+    const quickReplies = document.getElementById('quickReplies');
+
+    // 챗봇 데이터베이스 (자주 발생하는 전산 문제 해결 가이드)
+    const chatbotResponses = {
+        monitor: {
+            title: "🖥️ 모니터 화면이 안 나옴 해결법",
+            steps: [
+                "<strong>전원 케이블 확인</strong>: 모니터 뒷면과 콘센트에 전원선이 단단히 꽂혀 있는지 확인하고, 모니터 전원 버튼을 눌러보세요. (대기 전원 램프 불빛 확인)",
+                "<strong>케이블 재연결</strong>: PC 본체와 모니터를 연결하는 영상 케이블(HDMI, DP 등)을 뺐다가 먼지를 턴 후 다시 끝까지 밀어 넣어 연결하세요. 듀얼 모니터인 경우 케이블 포트를 서로 바꾸어 꽂아 봅니다.",
+                "<strong>입력 소스 설정 확인</strong>: 모니터 하단/뒷면의 메뉴 버튼을 눌러 입력 소(Input Source)가 올바른 포트(HDMI, DP 등)로 설정되어 있는지 확인하세요.",
+                "<strong>본체 전원 재부팅</strong>: 본체 전원 버튼을 5초 이상 길게 눌러 강제 종료한 후, 1분 뒤에 다시 켜서 부팅 화면이 올라오는지 확인합니다."
+            ],
+            tip: "모니터 자체 화면에 '케이블 연결 상태 확인' 혹은 '신호 없음(No Signal)' 문구가 뜬다면 케이블 접촉 불량이나 본체 그래픽 카드 이상일 가능성이 높습니다."
+        },
+        printer: {
+            title: "🖨️ 프린터/인쇄 오류 해결법",
+            steps: [
+                "<strong>기본 프린터 확인</strong>: [제어판] -> [장치 및 프린터]에서 사용하고자 하는 사내 복합기(예: 3층 신도리코)가 '기본 프린터'로 체크되어 있는지 확인하세요.",
+                "<strong>인쇄 대기열 삭제</strong>: 인쇄가 안 되어 여러 번 누른 경우 대기열에 문서가 꼬여서 안 나올 수 있습니다. 프린터 아이콘을 더블 클릭한 후 [모든 문서 취소]를 누르고 재인도해 보세요.",
+                "<strong>프린터 스풀러(Spooler) 재시작</strong>: 아래 제공된 자동 해결 도구(배치파일)를 사용하여 서비스를 재시작할 수 있습니다."
+            ],
+            tip: "복합기 본체 액정 화면에 '용지 걸림'이나 '토너 부족' 에러 메시지가 표시 중인지 먼저 체크해 보시기 바랍니다.",
+            download: {
+                text: "🛠️ 프린터 스풀러 재시작 배치파일 다운로드",
+                file: "downloads/restart_spooler.bat",
+                guide: "다운로드된 파일을 실행하기 전에 반드시 <strong>마우스 우클릭 -> 관리자 권한으로 실행</strong>을 눌러주셔야 인쇄 서비스가 정상 재시작됩니다."
+            }
+        },
+        slow: {
+            title: "⚡ PC 속도 저하 및 프로그램 오류 해결법",
+            steps: [
+                "<strong>불필요한 프로세스 종료</strong>: [작업 관리자 (Ctrl+Shift+Esc)]를 열고 CPU 또는 메모리 점유율이 90% 이상인 사용하지 않는 프로그램을 찾아 [작업 끝내기]를 실행하세요.",
+                "<strong>디스크 공간 확보</strong>: C 드라이브 용량이 부족하면 속도가 극도로 느려집니다. 다운로드 폴더 및 휴지통을 비우고 불필요한 대용량 파일을 D 드라이브로 백업하세요."
+            ],
+            tip: "PC를 수 주간 끄지 않고 대기 모드로만 사용하면 메모리 누수가 발생하므로, 최소 1주일에 2~3회 이상은 PC 종료 및 다시 시작을 권장합니다."
+        },
+        share: {
+            title: "📁 공유폴더 접속 오류 해결법",
+            steps: [
+                "<strong>네트워크 경로 확인</strong>: 접속하려는 공유폴더 주소(예: <code>\\\\192.168.1.10</code>)의 스펠링과 백슬래시(<code>\\\\</code>) 입력 방향이 올바른지 확인해 주세요.",
+                "<strong>윈도우 자격증명 초기화</strong>: 사내 메일 패스워드 등을 바꾼 후 이전 세션이 꼬여서 접근이 안 될 수 있습니다. 아래 제공된 자동 초기화 도구(배치파일)를 실행해 연결을 강제 초기화한 후 <strong>PC를 재부팅하고</strong> 재접속해 보세요.",
+                "<strong>윈도우 11 특정 서버 접속 실패(11번 스캔팩스 / 39번 소프트웨어 점검)</strong>: 윈도우 11의 최신 보안 정책으로 인해 일부 사내 공유폴더 서버에 접근할 수 없을 수 있습니다. 아래 제공된 <strong>'윈도우 11 공유폴더 접속 복구 도구'</strong>를 실행하여 보안 설정을 변경하고 <strong>PC를 재부팅</strong>해 보세요."
+            ],
+            tip: "특정 폴더에만 접속 권한 없음 에러가 발생한다면, 폴더 소유자나 전산 부서에 계정 권한이 정상 등록되어 있는지 확인을 거쳐야 합니다.",
+            downloads: [
+                {
+                    title: "공유폴더 자격증명 캐시 제거 (공통)",
+                    text: "🛠️ 윈도우 자격증명 초기화 배치파일 다운로드",
+                    file: "downloads/reset_share_credentials.bat",
+                    guide: "다운로드된 파일을 더블 클릭하여 실행하면 꼬여 있던 모든 공유 폴더 가상 연결이 초기화됩니다. <strong>실행 완료 후 반드시 PC를 재부팅한 뒤</strong> 재접속하여 사내 로그인 아이디와 패스워드를 입력해 보세요."
+                },
+                {
+                    title: "윈도우 11 전용 접속 오류 복구 (11번 스캔팩스 / 39번 소프트웨어 점검 서버용)",
+                    text: "🛠️ 윈도우 11 공유폴더 접속 복구 배치파일 다운로드",
+                    file: "downloads/fix_win11_share_error.bat",
+                    guide: "다운로드된 파일을 실행하면 윈도우 11에서 11번(스캔팩스) 및 39번(소프트웨어 점검) 서버로의 게스트 로그인 허용 및 보안 서명 요구 해제 설정을 복구합니다. <strong>실행 완료 후 반드시 PC를 재부팅</strong>해 주세요."
+                }
+            ]
+        }
+    };
+
+    // 챗봇 입력 전송 함수
+    async function sendUserMessage(text) {
+        if (!text.trim()) return;
+
+        // 1. 사용자 말풍선 추가
+        appendMessage('user', text);
+        chatInput.value = '';
+
+        // 2. 타이핑 중 인디케이터 표시
+        const typingId = showTypingIndicator();
+
+        try {
+            // 3. 챗봇 자동 답변 생성 (비동기 처리)
+            const replyHtml = await getBotResponse(text);
+            removeTypingIndicator(typingId);
+            appendMessage('bot', replyHtml);
+        } catch (err) {
+            removeTypingIndicator(typingId);
+            appendMessage('bot', `<p>⚠️ 오류가 발생했습니다: ${err.message || err}</p>`);
+        }
+    }
+
+    // 채팅창 메시지 추가 함수
+    function appendMessage(sender, content) {
+        if (!chatMessages) return;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${sender}`;
+
+        let innerHTML = '';
+        if (sender === 'bot') {
+            innerHTML += `<div class="avatar"><i class="fa-solid fa-robot"></i></div>`;
+        }
+
+        innerHTML += `
+            <div class="msg-content">
+                ${content}
+            </div>
+        `;
+        msgDiv.innerHTML = innerHTML;
+        chatMessages.appendChild(msgDiv);
+        
+        // 스크롤 최하단으로 이동
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // 타이핑 인디케이터 표시
+    function showTypingIndicator() {
+        if (!chatMessages) return null;
+        const indicatorDiv = document.createElement('div');
+        const uniqueId = 'typing-' + Date.now();
+        indicatorDiv.className = 'message bot typing-indicator-wrapper';
+        indicatorDiv.id = uniqueId;
+        indicatorDiv.innerHTML = `
+            <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+            <div class="msg-content" style="padding: 10px 14px;">
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(indicatorDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return uniqueId;
+    }
+
+    // 타이핑 인디케이터 제거
+    function removeTypingIndicator(id) {
+        if (!id) return;
+        const indicator = document.getElementById(id);
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
+    // 메시지 텍스트 분석 및 최적 답변 매핑 (키워드 분석 및 AI 연동)
+    async function getBotResponse(inputText) {
+        const query = inputText.toLowerCase().replace(/\s+/g, '');
+        
+        // 1. 모니터
+        if (query.includes('모니터') || query.includes('화면') || query.includes('안나옴') || query.includes('디스플레이') || query.includes('듀얼')) {
+            return formatBotResponse(chatbotResponses.monitor);
+        }
+        // 2. 프린터
+        if (query.includes('프린터') || query.includes('인쇄') || query.includes('복사기') || query.includes('복합기') || query.includes('출력') || query.includes('인쇄가') || query.includes('스풀러')) {
+            return formatBotResponse(chatbotResponses.printer);
+        }
+        // 3. 느림
+        if (query.includes('느려') || query.includes('느림') || query.includes('용량') || query.includes('컴퓨터가') || query.includes('pc') || query.includes('프로그램') || query.includes('설치') || query.includes('엑셀') || query.includes('한글')) {
+            return formatBotResponse(chatbotResponses.slow);
+        }
+        // 4. 공유폴더
+        if (query.includes('공유') || query.includes('폴더') || query.includes('nas') || query.includes('나스') || query.includes('서버') || query.includes('자격') || query.includes('증명') || query.includes('네트워크드라이브')) {
+            return formatBotResponse(chatbotResponses.share);
+        }
+
+        // 기존 하드코딩 키워드 외의 모든 질문은 백엔드 Gemini AI 호출 시도
+        if (GOOGLE_SCRIPT_URL) {
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'askAI',
+                        prompt: inputText
+                    })
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        return `
+                            <p>${result.answer}</p>
+                            <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                                <a href="#" class="chat-action-link" id="chatLinkToRequest"><i class="fa-solid fa-circle-question"></i> 해결되지 않음 (문의 접수하기)</a>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (err) {
+                console.error("AI 챗봇 통신 실패:", err);
+            }
+        }
+
+        // 키워드 비매칭 및 AI 에러 시 폴백 메시지
+        return `
+            <p>죄송합니다. 😢 입력하신 내용(<strong>"${inputText}"</strong>)에 맞는 자가 해결법을 찾지 못했습니다.</p>
+            <p>아래와 같은 문제인지 확인해 주시거나, 계속 해결이 어려운 경우 [전산 문의 접수] 탭에서 상세 내용을 접수해 주시면 담당자가 신속히 연락해 드리겠습니다.</p>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <a href="#" class="chat-action-link" onclick="triggerQuickReply('monitor'); return false;"><i class="fa-solid fa-desktop"></i> 모니터 해결 가이드 보기</a>
+                <a href="#" class="chat-action-link" onclick="triggerQuickReply('printer'); return false;"><i class="fa-solid fa-print"></i> 프린터 인쇄 가이드 보기</a>
+                <a href="#" class="chat-action-link" onclick="triggerQuickReply('slow'); return false;"><i class="fa-solid fa-gauge-high"></i> PC 성능 속도 가이드 보기</a>
+                <a href="#" class="chat-action-link" onclick="triggerQuickReply('share'); return false;"><i class="fa-solid fa-folder-open"></i> 공유폴더 접속 가이드 보기</a>
+                <a href="#" class="chat-action-link" id="chatLinkToRequest"><i class="fa-solid fa-paper-plane"></i> IT 지원팀에 정식 문의 접수하기</a>
+            </div>
+        `;
+    }
+
+    // 챗봇 데이터 모델 포맷터
+    function formatBotResponse(data) {
+        let html = `<p><strong>${data.title}</strong></p>`;
+        html += `<p>스스로 해결해 볼 수 있는 조치 순서입니다.</p>`;
+        html += `<ol style="margin-top: 8px; margin-bottom: 8px; padding-left: 20px;">`;
+        data.steps.forEach((step) => {
+            html += `<li style="margin-bottom: 6px;">${step}</li>`;
+        });
+        html += `</ol>`;
+
+        if (data.downloads && Array.isArray(data.downloads)) {
+            data.downloads.forEach((dl) => {
+                html += `
+                    <div style="margin: 12px 0; padding: 14px; background-color: var(--primary-light); border: 1px solid var(--primary); border-radius: 8px; font-size: 0.9rem; color: var(--text-main);">
+                        <p style="font-weight: 600; color: var(--primary); margin-bottom: 8px;"><i class="fa-solid fa-screwdriver-wrench"></i> ${dl.title || '원클릭 자동 해결 도구'}</p>
+                        <a href="${dl.file}" download style="display: inline-flex; align-items: center; gap: 8px; background-color: var(--primary); color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-bottom: 10px; transition: var(--transition);" onmouseover="this.style.backgroundColor='#4338CA'" onmouseout="this.style.backgroundColor='var(--primary)'">
+                            <i class="fa-solid fa-download"></i> ${dl.text}
+                        </a>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;"><i class="fa-solid fa-circle-exclamation" style="color:var(--warning);"></i> ${dl.guide}</p>
+                    </div>
+                `;
+            });
+        } else if (data.download) {
+            html += `
+                <div style="margin: 12px 0; padding: 14px; background-color: var(--primary-light); border: 1px solid var(--primary); border-radius: 8px; font-size: 0.9rem; color: var(--text-main);">
+                    <p style="font-weight: 600; color: var(--primary); margin-bottom: 8px;"><i class="fa-solid fa-screwdriver-wrench"></i> 원클릭 자동 해결 도구</p>
+                    <a href="${data.download.file}" download style="display: inline-flex; align-items: center; gap: 8px; background-color: var(--primary); color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-bottom: 10px; transition: var(--transition);" onmouseover="this.style.backgroundColor='#4338CA'" onmouseout="this.style.backgroundColor='var(--primary)'">
+                        <i class="fa-solid fa-download"></i> ${data.download.text}
+                    </a>
+                    <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;"><i class="fa-solid fa-circle-exclamation" style="color:var(--warning);"></i> ${data.download.guide}</p>
+                </div>
+            `;
+        }
+
+        if (data.tip) {
+            html += `<p style="margin-top: 10px; padding: 10px; background-color: #F1F5F9; border-radius: 6px; font-size: 0.88rem; color: var(--text-muted);"><i class="fa-solid fa-circle-info" style="color:var(--primary); margin-right: 4px;"></i> <strong>Tip:</strong> ${data.tip}</p>`;
+        }
+        
+        // 하단 추가 액션 제공
+        html += `
+            <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="#" class="chat-action-link" id="chatLinkToRequest"><i class="fa-solid fa-circle-question"></i> 해결되지 않음 (문의 접수하기)</a>
+            </div>
+        `;
+        return html;
+    }
+
+    // 퀵 리플라이 트리거 함수 (전역 바인딩)
+    window.triggerQuickReply = function(keyword) {
+        if (!chatbotResponses[keyword]) return;
+        
+        // 1. 사용자 말풍선 추가
+        appendMessage('user', chatbotResponses[keyword].title);
+
+        const typingId = showTypingIndicator();
+        
+        setTimeout(() => {
+            removeTypingIndicator(typingId);
+            const replyHtml = formatBotResponse(chatbotResponses[keyword]);
+            appendMessage('bot', replyHtml);
+        }, 600);
+    };
+
+    // 퀵 버튼 클릭 바인딩
+    if (quickReplies) {
+        quickReplies.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-quick');
+            if (!btn) return;
+            const keyword = btn.getAttribute('data-keyword');
+            window.triggerQuickReply(keyword);
+        });
+    }
+
+    // 입력창 엔터 및 전송 클릭 바인딩
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendUserMessage(chatInput.value);
+            }
+        });
+    }
+
+    if (btnSendChat) {
+        btnSendChat.addEventListener('click', () => {
+            sendUserMessage(chatInput.value);
+        });
+    }
+
+    // 챗봇 가이드 내의 '문의 접수하기' 동적 바인딩 처리 (이벤트 위임)
+    if (chatMessages) {
+        chatMessages.addEventListener('click', (e) => {
+            const link = e.target.closest('#chatLinkToRequest');
+            if (!link) return;
+            e.preventDefault();
+            
+            // 문의 접수 탭으로 이동시킴
+            const requestTab = document.querySelector('.nav-links a[data-target="page-request"]');
+            if (requestTab) {
+                requestTab.click();
+            } else {
+                alert('문의 접수 탭에 접근할 수 없습니다.');
             }
         });
     }

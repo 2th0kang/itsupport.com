@@ -1111,3 +1111,9 @@ function sendNewRequestAlertToAdmins(req, adminEmails) {
   }
 }
 
+// 구글 서버에 외부 네트워크 통신 권한(UrlFetchApp)을 승인받기 위한 강제 활성화 함수
+function triggerAuthorization() {
+  UrlFetchApp.fetch("https://generativelanguage.googleapis.com/");
+  Logger.log("권한 승인 성공!");
+}
+

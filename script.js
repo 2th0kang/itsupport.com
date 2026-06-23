@@ -1957,11 +1957,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // 마스터 계정은 삭제 불가 (ID 1번 기준)
             const isMaster = Number(admin.id) === 1;
             
-            const editBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: #4f46e5; color:white; border:none;" onclick="openEditAdminModal(${admin.id}, '${admin.name || ''}', '${admin.username || ''}', '${admin.email || ''}')"><i class="fa-solid fa-user-gear"></i> 수정</button>`;
-            const changePwBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: var(--primary); color:white; border:none;" onclick="promptChangePassword(${admin.id}, '${admin.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
+            const editBtnHtml = `<button type="button" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 0.8rem; background-color: #4f46e5; color:white; border:none; border-radius: 4px; cursor:pointer; white-space:nowrap; font-weight:500;" onclick="openEditAdminModal(${admin.id}, '${admin.name || ''}', '${admin.username || ''}', '${admin.email || ''}')"><i class="fa-solid fa-user-gear"></i> 수정</button>`;
+            const changePwBtnHtml = `<button type="button" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 0.8rem; background-color: var(--primary); color:white; border:none; border-radius: 4px; cursor:pointer; white-space:nowrap; font-weight:500;" onclick="promptChangePassword(${admin.id}, '${admin.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
             const deleteBtnHtml = isMaster 
-                ? `<span style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500; margin-left: 6px;">마스터 계정</span>`
-                : `<button class="btn-del" onclick="deleteAdminAccount(${admin.id}, '${admin.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
+                ? `<span style="color: var(--text-muted); font-size: 0.8rem; font-weight: 500; white-space: nowrap; padding: 6px 10px;">마스터 계정</span>`
+                : `<button type="button" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 0.8rem; background-color: #ef4444; color:white; border:none; border-radius: 4px; cursor:pointer; white-space:nowrap; font-weight:500;" onclick="deleteAdminAccount(${admin.id}, '${admin.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
 
             tr.innerHTML = `
                 <td>${index + 1}</td>
@@ -1970,7 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${admin.email || '-'}</td>
                 <td>${dateStr}</td>
                 <td>
-                    <div style="display:flex; align-items:center; justify-content:center;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:nowrap;">
                         ${editBtnHtml}
                         ${changePwBtnHtml}
                         ${deleteBtnHtml}
@@ -2489,9 +2489,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!user || !user.username) return; // 무효한 데이터 스킵
             const tr = document.createElement('tr');
             
-            const editBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: #4f46e5; color:white; border:none;" onclick="openEditUserModal('${user.username}', '${user.name || ''}', '${user.team || ''}', '${user.email || ''}')"><i class="fa-solid fa-user-gear"></i> 수정</button>`;
-            const changePwBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: var(--primary); color:white; border:none;" onclick="promptChangeUserPassword('${user.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
-            const deleteBtnHtml = `<button class="btn-del" onclick="deleteUserAccount('${user.username}', '${user.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
+            const editBtnHtml = `<button type="button" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 0.8rem; background-color: #4f46e5; color:white; border:none; border-radius: 4px; cursor:pointer; white-space:nowrap; font-weight:500;" onclick="openEditUserModal('${user.username}', '${user.name || ''}', '${user.team || ''}', '${user.email || ''}')"><i class="fa-solid fa-user-gear"></i> 수정</button>`;
+            const changePwBtnHtml = `<button type="button" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 0.8rem; background-color: var(--primary); color:white; border:none; border-radius: 4px; cursor:pointer; white-space:nowrap; font-weight:500;" onclick="promptChangeUserPassword('${user.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
+            const deleteBtnHtml = `<button type="button" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 0.8rem; background-color: #ef4444; color:white; border:none; border-radius: 4px; cursor:pointer; white-space:nowrap; font-weight:500;" onclick="deleteUserAccount('${user.username}', '${user.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
 
             tr.innerHTML = `
                 <td>${index + 1}</td>
@@ -2500,7 +2500,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${user.team || '-'}</td>
                 <td>${user.email || '-'}</td>
                 <td>
-                    <div style="display:flex; align-items:center; justify-content:center;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:nowrap;">
                         ${editBtnHtml}
                         ${changePwBtnHtml}
                         ${deleteBtnHtml}

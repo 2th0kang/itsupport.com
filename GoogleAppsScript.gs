@@ -11,7 +11,8 @@ var SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1HWDa7XVGFh1-LGRKy
 var DASHBOARD_URL = 'https://2th0kang.github.io/itsupport.com/';
 
 // Gemini API 키 (임직원들이 AI 답변을 받기 위해 아래에 API 키를 입력하세요. 서버 사이드에서 실행되므로 외부에는 노출되지 않습니다.)
-var GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+// 보안 및 깃허브 푸시 보호 통과를 위해, Apps Script 프로젝트 설정의 '스크립트 속성'에 'GEMINI_API_KEY' 키와 값을 저장하여 사용하는 것을 권장합니다.
+var GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || 'YOUR_GEMINI_API_KEY_HERE';
 
 // 유틸리티: 시트 이름으로 시트 가져오기 (없으면 생성)
 function getOrCreateSheet(ss, sheetName) {

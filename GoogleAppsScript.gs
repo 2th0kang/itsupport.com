@@ -10,9 +10,7 @@ var SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/1HWDa7XVGFh1-LGRKy
 // 대시보드 웹페이지 주소를 아래 따옴표 안에 붙여넣으세요.
 var DASHBOARD_URL = 'https://2th0kang.github.io/itsupport.com/';
 
-// Gemini API 키 (임직원들이 AI 답변을 받기 위해 아래에 API 키를 입력하세요. 서버 사이드에서 실행되므로 외부에는 노출되지 않습니다.)
-// 보안 및 깃허브 푸시 보호 통과를 위해, Apps Script 프로젝트 설정의 '스크립트 속성'에 'GEMINI_API_KEY' 키와 값을 저장하여 사용하는 것을 권장합니다.
-var GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || 'YOUR_GEMINI_API_KEY_HERE';
+
 
 // 유틸리티: 시트 이름으로 시트 가져오기 (없으면 생성)
 function getOrCreateSheet(ss, sheetName) {
@@ -1004,79 +1002,7 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // 7. IT 전산 해결 AI 챗봇 질의응답 액션 (Gemini API 연동)
-    else if (action === 'askAI') {
-      var prompt = payload.prompt;
-      
-      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'success',
-          answer: "⚠️ 전산 관리자 설정 오류: <code>GoogleAppsScript.gs</code> 백엔드 파일 상단에 유효한 <strong>Gemini API Key</strong>가 등록되지 않았습니다. 전산 담당자에게 API 키 등록을 요청해 주세요."
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
 
-      var systemInstruction = "너는 사내 IT 지원팀의 친절하고 유능한 전산 엔지니어이다. 임직원이 PC 고장, 모니터 화면 안 나옴, 프린터 오류, 네트워크 끊김, 소프트웨어 설치 에러 등 IT 장애 증상을 질문하면, 초보자도 쉽게 따라 할 수 있도록 단계별(Step-by-step) 자가 해결법을 매우 친절한 한글로 작성해 다정하게 대답해 주어라. 글자 서식은 줄바꿈과 볼드 <strong>태그 등을 적절히 섞어서 가독성 있게 표현해라.";
-
-      var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_API_KEY;
-      var apiPayload = {
-        "contents": [
-          {
-            "parts": [
-              {
-                "text": prompt
-              }
-            ]
-          }
-        ],
-        "systemInstruction": {
-          "parts": [
-            {
-              "text": systemInstruction
-            }
-          ]
-        },
-        "generationConfig": {
-          "temperature": 0.3
-        }
-      };
-
-      var options = {
-        "method": "post",
-        "contentType": "application/json",
-        "payload": JSON.stringify(apiPayload),
-        "muteHttpExceptions": true
-      };
-
-      try {
-        var response = UrlFetchApp.fetch(url, options);
-        var resText = response.getContentText();
-        var json = JSON.parse(resText);
-        
-        if (json.candidates && json.candidates.length > 0 && json.candidates[0].content && json.candidates[0].content.parts && json.candidates[0].content.parts.length > 0) {
-          var aiAnswer = json.candidates[0].content.parts[0].text;
-          
-          // 마크다운 줄바꿈(\n)을 HTML <br>로 변경하고, 마크다운 볼드(**)를 <strong>으로 변경
-          aiAnswer = aiAnswer.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-          aiAnswer = aiAnswer.replace(/\n/g, "<br>");
-          
-          return ContentService.createTextOutput(JSON.stringify({
-            status: 'success',
-            answer: aiAnswer
-          })).setMimeType(ContentService.MimeType.JSON);
-        } else {
-          return ContentService.createTextOutput(JSON.stringify({
-            status: 'error',
-            message: 'AI 응답 파싱 실패: ' + resText
-          })).setMimeType(ContentService.MimeType.JSON);
-        }
-      } catch (err) {
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'error',
-          message: 'API 호출 오류: ' + err.toString()
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
-    
     else {
       return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'Unknown action: ' + action}))
         .setMimeType(ContentService.MimeType.JSON);

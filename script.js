@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItemRequest = document.getElementById('nav-item-request');
     const navItemDashboard = document.getElementById('nav-item-dashboard');
     const navItemAdminList = document.getElementById('nav-item-admin-list');
+    const navItemUserList = document.getElementById('nav-item-user-list');
     const navItemChatbot = document.getElementById('nav-item-chatbot');
     const navItemAdminRegister = document.getElementById('nav-item-admin-register');
     const navUserProfile = document.getElementById('nav-user-profile');
@@ -160,6 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navItemReport) navItemReport.style.display = 'none';
             if (navItemProvision) navItemProvision.style.display = 'none';
             if (navItemAdminList) navItemAdminList.style.display = 'none';
+            if (navItemUserList) navItemUserList.style.display = 'none';
             if (navItemChatbot) navItemChatbot.style.display = 'none';
             if (navItemAdminRegister) navItemAdminRegister.style.display = 'none';
             if (navItemLogin) navItemLogin.style.display = 'block';
@@ -189,7 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (navItemReport) navItemReport.style.display = 'block';
                 if (navItemProvision) navItemProvision.style.display = 'block';
                 if (navItemAdminList) navItemAdminList.style.display = 'block';
-                if (navItemChatbot) navItemChatbot.style.display = 'none';
+                if (navItemUserList) navItemUserList.style.display = 'block';
+                if (navItemChatbot) navItemChatbot.style.display = 'block';
                 if (navItemAdminRegister) navItemAdminRegister.style.display = 'block';
                 if (navItemLogin) navItemLogin.style.display = 'none';
                 if (navItemLogout) navItemLogout.style.display = 'block';
@@ -201,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (navItemReport) navItemReport.style.display = 'none';
                 if (navItemProvision) navItemProvision.style.display = 'none';
                 if (navItemAdminList) navItemAdminList.style.display = 'none';
+                if (navItemUserList) navItemUserList.style.display = 'none';
                 if (navItemChatbot) navItemChatbot.style.display = 'block';
                 if (navItemAdminRegister) navItemAdminRegister.style.display = 'none';
                 if (navItemLogin) navItemLogin.style.display = 'none';
@@ -230,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             } else if (userRole === 'admin') {
-                if (targetId === 'page-request' || targetId === 'page-chatbot') {
+                if (targetId === 'page-request') {
                     alert('관리자는 이 기능을 이용할 수 없습니다.');
                     return;
                 }
@@ -245,10 +249,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'page-report') updateReport();
             if (targetId === 'page-provision') renderProvisionTable();
             if (targetId === 'page-admin-list') loadAdminList();
+            if (targetId === 'page-user-list') loadUserList();
             if (targetId === 'page-request') fillUserInfo();
 
             // 처리 현황 등에 들어갈 때마다 최신 데이터 다시 받아옴
-            if (['page-dashboard', 'page-report', 'page-provision', 'page-admin-list'].includes(targetId)) {
+            if (['page-dashboard', 'page-report', 'page-provision', 'page-admin-list', 'page-user-list'].includes(targetId)) {
                 loadData();
             }
 
@@ -266,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 권한 유효성 체크 후 탭 복원
             if (userRole === 'user' && ['page-request', 'page-dashboard', 'page-chatbot'].includes(activeTab)) {
                 document.querySelector(`.nav-links a[data-target="${activeTab}"]`).click();
-            } else if (userRole === 'admin' && ['page-dashboard', 'page-report', 'page-provision', 'page-admin-list', 'page-admin-register'].includes(activeTab)) {
+            } else if (userRole === 'admin' && ['page-dashboard', 'page-report', 'page-provision', 'page-admin-list', 'page-admin-register', 'page-user-list', 'page-chatbot'].includes(activeTab)) {
                 document.querySelector(`.nav-links a[data-target="${activeTab}"]`).click();
             } else {
                 // 권한 범위 밖인 경우 권한에 따른 기본값 지정
@@ -311,12 +316,29 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoading();
             try {
                 if (!GOOGLE_SCRIPT_URL) {
-                    // 로컬 테스트 모드: admin:1234 고정 로그인만 허용
-                    if (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c') {
+                    // 로컬 테스트 모드: admin:1234 고정 로그인 허용 및 일반 사용자 로컬 DB 매칭 허용
+                    if (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c' && id === 'admin') {
                         isValid = true;
                         resRole = 'admin';
                         resName = '마스터 관리자';
                         resEmail = 'admin@swei.co.kr';
+                    } else {
+                        // 로컬 사용자 DB에서 매칭 시도
+                        const localUsers = JSON.parse(localStorage.getItem('localUsersDB') || '[]');
+                        const userObj = localUsers.find(u => u.username === id && u.passwordHash === hashHex);
+                        if (userObj) {
+                            isValid = true;
+                            resRole = 'user';
+                            resName = userObj.name;
+                            resTeam = userObj.team;
+                            resEmail = userObj.email;
+                        } else if (id === 'testuser' && (hashHex === 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c' || pw === '1234')) {
+                            isValid = true;
+                            resRole = 'user';
+                            resName = '테스트유저';
+                            resTeam = '전산팀';
+                            resEmail = 'testuser@swei.co.kr';
+                        }
                     }
                 } else {
                     // 서버 사이드 검증 요청
@@ -2379,4 +2401,437 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // ==========================================
+    // 사용자(임직원) 계정 관리 로직 구현
+    // ==========================================
+    const userRegModal = document.getElementById('userRegModal');
+    const userEditModal = document.getElementById('userEditModal');
+    const changeUserPasswordModal = document.getElementById('changeUserPasswordModal');
+    
+    const btnShowAddUserModal = document.getElementById('btnShowAddUserModal');
+    const btnCloseUserRegModal = document.getElementById('btnCloseUserRegModal');
+    const btnCloseUserEditModal = document.getElementById('btnCloseUserEditModal');
+    const btnCloseChangeUserPasswordModal = document.getElementById('btnCloseChangeUserPasswordModal');
+    
+    const userRegForm = document.getElementById('userRegForm');
+    const userEditForm = document.getElementById('userEditForm');
+    const changeUserPasswordForm = document.getElementById('changeUserPasswordForm');
+
+    // 모달 열기/닫기 이벤트 바인딩
+    if (btnShowAddUserModal) {
+        btnShowAddUserModal.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (userRegForm) userRegForm.reset();
+            if (userRegModal) userRegModal.classList.add('show');
+        });
+    }
+
+    if (btnCloseUserRegModal) {
+        btnCloseUserRegModal.addEventListener('click', () => {
+            if (userRegModal) userRegModal.classList.remove('show');
+        });
+    }
+
+    if (btnCloseUserEditModal) {
+        btnCloseUserEditModal.addEventListener('click', () => {
+            if (userEditModal) userEditModal.classList.remove('show');
+        });
+    }
+
+    if (btnCloseChangeUserPasswordModal) {
+        btnCloseChangeUserPasswordModal.addEventListener('click', () => {
+            if (changeUserPasswordModal) changeUserPasswordModal.classList.remove('show');
+        });
+    }
+
+    // 사용자 계정 조회 및 로드
+    window.loadUserList = async function() {
+        showLoading();
+        let useLocalFallback = false;
+        try {
+            if (!GOOGLE_SCRIPT_URL) {
+                useLocalFallback = true;
+            } else {
+                // 구글 시트 연동 모드
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'getUsers' })
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result && result.status === 'success') {
+                        renderUserList(result.users || []);
+                    } else {
+                        // Unknown action 등으로 실패 시 로컬로 폴백
+                        console.warn('사용자 조회 API 실패, 로컬 스토리지로 대체합니다:', result ? result.message : '응답 없음');
+                        useLocalFallback = true;
+                    }
+                } else {
+                    useLocalFallback = true;
+                }
+            }
+        } catch (err) {
+            console.error('사용자 목록 로드 중 오류, 로컬 스토리지로 대체합니다:', err);
+            useLocalFallback = true;
+        } finally {
+            hideLoading();
+        }
+
+        if (useLocalFallback) {
+            const localData = localStorage.getItem('localUsersDB');
+            let users = [];
+            try {
+                if (localData) {
+                    users = JSON.parse(localData);
+                }
+            } catch (e) {
+                console.error('로컬 사용자 DB 파싱 에러, 초기화합니다:', e);
+                users = [];
+            }
+            
+            if (!Array.isArray(users) || users.length === 0) {
+                // 초기 샘플 사용자 데이터 생성
+                users = [{
+                    username: 'testuser',
+                    name: '테스트유저',
+                    team: '전산팀',
+                    email: 'testuser@swei.co.kr',
+                    passwordHash: 'f8e68e8d44bfb5314974a97f787d017ff6ac9d0046083f28665fcf96f0cef80c' // 기본 비번 1234
+                }];
+                localStorage.setItem('localUsersDB', JSON.stringify(users));
+            }
+            renderUserList(users);
+        }
+    };
+
+    // 사용자 목록 렌더링
+    function renderUserList(users) {
+        const tbody = document.querySelector('#userListTable tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(users) || users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">등록된 사용자가 없습니다.</td></tr>`;
+            return;
+        }
+
+        users.forEach((user, index) => {
+            if (!user || !user.username) return; // 무효한 데이터 스킵
+            const tr = document.createElement('tr');
+            
+            const editBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: #4f46e5; color:white; border:none;" onclick="openEditUserModal('${user.username}', '${user.name || ''}', '${user.team || ''}', '${user.email || ''}')"><i class="fa-solid fa-user-gear"></i> 수정</button>`;
+            const changePwBtnHtml = `<button type="button" class="btn-img-attach" style="padding: 6px 12px; margin-right: 6px; width:auto; font-size:0.85rem; background-color: var(--primary); color:white; border:none;" onclick="promptChangeUserPassword('${user.username}')"><i class="fa-solid fa-key"></i> 변경</button>`;
+            const deleteBtnHtml = `<button class="btn-del" onclick="deleteUserAccount('${user.username}', '${user.name}')"><i class="fa-solid fa-trash"></i> 삭제</button>`;
+
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><code>${user.username}</code></td>
+                <td><strong>${user.name || '-'}</strong></td>
+                <td>${user.team || '-'}</td>
+                <td>${user.email || '-'}</td>
+                <td>
+                    <div style="display:flex; align-items:center; justify-content:center;">
+                        ${editBtnHtml}
+                        ${changePwBtnHtml}
+                        ${deleteBtnHtml}
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // 신규 사용자 등록 처리
+    if (userRegForm) {
+        userRegForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('newUserUsername').value.trim();
+            const realName = document.getElementById('newUserRealName').value.trim();
+            const team = document.getElementById('newUserTeam').value;
+            const pw = document.getElementById('newUserPw').value;
+            const pwConfirm = document.getElementById('newUserPwConfirm').value;
+            const email = document.getElementById('newUserEmail').value.trim();
+
+            if (pw !== pwConfirm) {
+                alert('비밀번호가 서로 일치하지 않습니다.');
+                return;
+            }
+
+            // 사번 + ":" + 비밀번호 조합 후 SHA-256 해싱
+            const encoder = new TextEncoder();
+            const data = encoder.encode(username + ":" + pw);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            showLoading();
+            let useLocalFallback = false;
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    useLocalFallback = true;
+                } else {
+                    // 구글 시트 연동 모드
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'addUser',
+                            username,
+                            name: realName,
+                            team,
+                            password: hashHex,
+                            email
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            alert('새 사용자 계정이 성공적으로 추가되었습니다!');
+                            if (userRegModal) userRegModal.classList.remove('show');
+                            loadUserList();
+                        } else {
+                            console.warn('사용자 추가 API 실패, 로컬 스토리지에 기록합니다:', result.message);
+                            useLocalFallback = true;
+                        }
+                    } else {
+                        useLocalFallback = true;
+                    }
+                }
+            } catch (err) {
+                console.error('사용자 추가 중 오류, 로컬 스토리지에 기록합니다:', err);
+                useLocalFallback = true;
+            } finally {
+                hideLoading();
+            }
+
+            if (useLocalFallback) {
+                const localUsers = JSON.parse(localStorage.getItem('localUsersDB') || '[]');
+                if (localUsers.some(u => u.username === username)) {
+                    alert('이미 존재하는 사원 ID입니다.');
+                    return;
+                }
+                localUsers.push({
+                    username,
+                    name: realName,
+                    team,
+                    email,
+                    passwordHash: hashHex
+                });
+                localStorage.setItem('localUsersDB', JSON.stringify(localUsers));
+                alert('새 사용자 계정이 로컬 저장소에 추가되었습니다! (배포되지 않은 API 모드)');
+                if (userRegModal) userRegModal.classList.remove('show');
+                loadUserList();
+            }
+        });
+    }
+
+    // 사용자 정보 수정 모달 팝업
+    window.openEditUserModal = function(username, name, team, email) {
+        document.getElementById('editUserOldUsername').value = username;
+        document.getElementById('editUserUsername').value = username;
+        document.getElementById('editUserRealName').value = name;
+        document.getElementById('editUserTeam').value = team;
+        document.getElementById('editUserEmail').value = email;
+        if (userEditModal) userEditModal.classList.add('show');
+    };
+
+    // 사용자 정보 수정 처리
+    if (userEditForm) {
+        userEditForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const oldUsername = document.getElementById('editUserOldUsername').value;
+            const username = document.getElementById('editUserUsername').value.trim();
+            const realName = document.getElementById('editUserRealName').value.trim();
+            const team = document.getElementById('editUserTeam').value;
+            const email = document.getElementById('editUserEmail').value.trim();
+
+            showLoading();
+            let useLocalFallback = false;
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    useLocalFallback = true;
+                } else {
+                    // 구글 시트 연동 모드
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'updateUserInfo',
+                            oldUsername,
+                            username,
+                            name: realName,
+                            team,
+                            email
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            alert('사용자 정보가 성공적으로 수정되었습니다.');
+                            if (userEditModal) userEditModal.classList.remove('show');
+                            loadUserList();
+                        } else {
+                            console.warn('사용자 정보 수정 API 실패, 로컬 스토리지에 기록합니다:', result.message);
+                            useLocalFallback = true;
+                        }
+                    } else {
+                        useLocalFallback = true;
+                    }
+                }
+            } catch (err) {
+                console.error('사용자 정보 수정 중 오류, 로컬 스토리지에 기록합니다:', err);
+                useLocalFallback = true;
+            } finally {
+                hideLoading();
+            }
+
+            if (useLocalFallback) {
+                const localUsers = JSON.parse(localStorage.getItem('localUsersDB') || '[]');
+                if (username !== oldUsername && localUsers.some(u => u.username === username)) {
+                    alert('이미 존재하는 사원 ID입니다.');
+                    return;
+                }
+                const userIndex = localUsers.findIndex(u => u.username === oldUsername);
+                if (userIndex !== -1) {
+                    localUsers[userIndex].username = username;
+                    localUsers[userIndex].name = realName;
+                    localUsers[userIndex].team = team;
+                    localUsers[userIndex].email = email;
+                    localStorage.setItem('localUsersDB', JSON.stringify(localUsers));
+                    alert('사용자 정보가 로컬 저장소에 수정되었습니다! (배포되지 않은 API 모드)');
+                    if (userEditModal) userEditModal.classList.remove('show');
+                    loadUserList();
+                }
+            }
+        });
+    }
+
+    // 사용자 비밀번호 변경 모달 팝업
+    window.promptChangeUserPassword = function(username) {
+        if (changeUserPasswordForm) changeUserPasswordForm.reset();
+        document.getElementById('changeUserPasswordUsername').value = username;
+        document.getElementById('changeUserPasswordTargetId').value = username;
+        if (changeUserPasswordModal) changeUserPasswordModal.classList.add('show');
+    };
+
+    // 사용자 비밀번호 변경 처리
+    if (changeUserPasswordForm) {
+        changeUserPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('changeUserPasswordUsername').value;
+            const newPw = document.getElementById('newUserChangePassword').value;
+            const newPwConfirm = document.getElementById('newUserChangePasswordConfirm').value;
+
+            if (newPw !== newPwConfirm) {
+                alert('비밀번호가 서로 일치하지 않습니다.');
+                return;
+            }
+
+            // 사번 + ":" + 새 비밀번호 조합 후 SHA-256 해싱
+            const encoder = new TextEncoder();
+            const data = encoder.encode(username + ":" + newPw);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            showLoading();
+            let useLocalFallback = false;
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    useLocalFallback = true;
+                } else {
+                    // 구글 시트 연동 모드
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'changeUserPassword',
+                            username,
+                            newPasswordHash: hashHex
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            alert('사용자 비밀번호가 성공적으로 변경되었습니다!');
+                            if (changeUserPasswordModal) changeUserPasswordModal.classList.remove('show');
+                            loadUserList();
+                        } else {
+                            console.warn('비밀번호 변경 API 실패, 로컬 스토리지에 기록합니다:', result.message);
+                            useLocalFallback = true;
+                        }
+                    } else {
+                        useLocalFallback = true;
+                    }
+                }
+            } catch (err) {
+                console.error('비밀번호 변경 중 오류, 로컬 스토리지에 기록합니다:', err);
+                useLocalFallback = true;
+            } finally {
+                hideLoading();
+            }
+
+            if (useLocalFallback) {
+                const localUsers = JSON.parse(localStorage.getItem('localUsersDB') || '[]');
+                const userIndex = localUsers.findIndex(u => u.username === username);
+                if (userIndex !== -1) {
+                    localUsers[userIndex].passwordHash = hashHex;
+                    localStorage.setItem('localUsersDB', JSON.stringify(localUsers));
+                    alert('사용자 비밀번호가 로컬 저장소에 변경되었습니다! (배포되지 않은 API 모드)');
+                    if (changeUserPasswordModal) changeUserPasswordModal.classList.remove('show');
+                    loadUserList();
+                }
+            }
+        });
+    }
+
+    // 사용자 계정 삭제 처리
+    window.deleteUserAccount = async function(username, realName) {
+        if (confirm(`정말 사용자 계정 [${realName} (${username})]을(를) 영구 삭제하시겠습니까?`)) {
+            showLoading();
+            let useLocalFallback = false;
+            try {
+                if (!GOOGLE_SCRIPT_URL) {
+                    useLocalFallback = true;
+                } else {
+                    // 구글 시트 연동 모드
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'deleteUser',
+                            username
+                        })
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            alert(`사용자 계정 [${realName}]이(가) 정상적으로 삭제되었습니다.`);
+                            loadUserList();
+                        } else {
+                            console.warn('사용자 삭제 API 실패, 로컬 스토리지에 반영합니다:', result.message);
+                            useLocalFallback = true;
+                        }
+                    } else {
+                        useLocalFallback = true;
+                    }
+                }
+            } catch (err) {
+                console.error('사용자 삭제 오류, 로컬 스토리지에 반영합니다:', err);
+                useLocalFallback = true;
+            } finally {
+                hideLoading();
+            }
+
+            if (useLocalFallback) {
+                let localUsers = JSON.parse(localStorage.getItem('localUsersDB') || '[]');
+                localUsers = localUsers.filter(u => u.username !== username);
+                localStorage.setItem('localUsersDB', JSON.stringify(localUsers));
+                alert(`사용자 계정 [${realName}]이(가) 로컬 저장소에서 삭제되었습니다. (배포되지 않은 API 모드)`);
+                loadUserList();
+            }
+        }
+    };
 });

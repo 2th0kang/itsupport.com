@@ -637,6 +637,203 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
+    // 사용자 계정 조회 액션
+    else if (action === 'getUsers') {
+      var userDbSheet = ss.getSheetByName('사용자 계정');
+      if (!userDbSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '사용자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var data = userDbSheet.getDataRange().getValues();
+      var users = [];
+      if (data.length > 1) {
+        var headers = data[0];
+        var usernameColIdx = -1, nameColIdx = -1, teamColIdx = -1, emailColIdx = -1;
+        for (var j = 0; j < headers.length; j++) {
+          var h = headers[j].toString().trim().toLowerCase();
+          if (['사원 id', '사원id', '아이디', 'id', 'username', '사번', '사원번호'].indexOf(h) !== -1) usernameColIdx = j;
+          else if (['이름', 'name', '성명'].indexOf(h) !== -1) nameColIdx = j;
+          else if (['소속팀', '소속 팀', '부서', 'team', 'dept', '소속'].indexOf(h) !== -1) teamColIdx = j;
+          else if (['이메일', 'email', '메일'].indexOf(h) !== -1) emailColIdx = j;
+        }
+        for (var i = 1; i < data.length; i++) {
+          var row = data[i];
+          users.push({
+            id: i, // 임시 고유 ID로 행 번호 활용
+            username: (usernameColIdx !== -1 && row[usernameColIdx] !== undefined && row[usernameColIdx] !== null) ? row[usernameColIdx].toString().trim() : '',
+            name: (nameColIdx !== -1 && row[nameColIdx] !== undefined && row[nameColIdx] !== null) ? row[nameColIdx].toString().trim() : '',
+            team: (teamColIdx !== -1 && row[teamColIdx] !== undefined && row[teamColIdx] !== null) ? row[teamColIdx].toString().trim() : '',
+            email: (emailColIdx !== -1 && row[emailColIdx] !== undefined && row[emailColIdx] !== null) ? row[emailColIdx].toString().trim() : ''
+          });
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'success', users: users}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 신규 사용자 추가 액션
+    else if (action === 'addUser') {
+      var userDbSheet = ss.getSheetByName('사용자 계정');
+      if (!userDbSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '사용자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var username = payload.username.toString().trim();
+      var name = payload.name.toString().trim();
+      var team = payload.team.toString().trim();
+      var password = payload.password.toString().trim(); // 이미 해싱된 상태
+      var email = payload.email ? payload.email.toString().trim() : (username + "@swei.co.kr");
+
+      var data = userDbSheet.getDataRange().getValues();
+      var headers = data[0];
+      var usernameColIdx = -1, nameColIdx = -1, teamColIdx = -1, emailColIdx = -1, passwordColIdx = -1;
+      for (var j = 0; j < headers.length; j++) {
+        var h = headers[j].toString().trim().toLowerCase();
+        if (['사원 id', '사원id', '아이디', 'id', 'username', '사번', '사원번호'].indexOf(h) !== -1) usernameColIdx = j;
+        else if (['이름', 'name', '성명'].indexOf(h) !== -1) nameColIdx = j;
+        else if (['소속팀', '소속 팀', '부서', 'team', 'dept', '소속'].indexOf(h) !== -1) teamColIdx = j;
+        else if (['이메일', 'email', '메일'].indexOf(h) !== -1) emailColIdx = j;
+        else if (['비밀번호', 'password', 'pw', '비번', '패스워드', '암호'].indexOf(h) !== -1) passwordColIdx = j;
+      }
+
+      if (usernameColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][usernameColIdx].toString().trim() === username) {
+            return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '이미 존재하는 사원 ID입니다.'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+
+      var newRow = [];
+      for (var j = 0; j < headers.length; j++) {
+        if (j === usernameColIdx) newRow.push(username);
+        else if (j === nameColIdx) newRow.push(name);
+        else if (j === teamColIdx) newRow.push(team);
+        else if (j === emailColIdx) newRow.push(email);
+        else if (j === passwordColIdx) newRow.push(password);
+        else newRow.push('');
+      }
+      userDbSheet.appendRow(newRow);
+
+      return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 사용자 삭제 액션
+    else if (action === 'deleteUser') {
+      var userDbSheet = ss.getSheetByName('사용자 계정');
+      if (!userDbSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '사용자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var username = payload.username.toString().trim();
+
+      var data = userDbSheet.getDataRange().getValues();
+      var headers = data[0];
+      var usernameColIdx = -1;
+      for (var j = 0; j < headers.length; j++) {
+        var h = headers[j].toString().trim().toLowerCase();
+        if (['사원 id', '사원id', '아이디', 'id', 'username', '사번', '사원번호'].indexOf(h) !== -1) usernameColIdx = j;
+      }
+
+      if (usernameColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][usernameColIdx].toString().trim() === username) {
+            userDbSheet.deleteRow(i + 1);
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 사원을 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 사용자 비밀번호 변경 액션
+    else if (action === 'changeUserPassword') {
+      var userDbSheet = ss.getSheetByName('사용자 계정');
+      if (!userDbSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '사용자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var username = payload.username.toString().trim();
+      var newPasswordHash = payload.newPasswordHash;
+
+      var data = userDbSheet.getDataRange().getValues();
+      var headers = data[0];
+      var usernameColIdx = -1, passwordColIdx = -1;
+      for (var j = 0; j < headers.length; j++) {
+        var h = headers[j].toString().trim().toLowerCase();
+        if (['사원 id', '사원id', '아이디', 'id', 'username', '사번', '사원번호'].indexOf(h) !== -1) usernameColIdx = j;
+        else if (['비밀번호', 'password', 'pw', '비번', '패스워드', '암호'].indexOf(h) !== -1) passwordColIdx = j;
+      }
+
+      if (usernameColIdx !== -1 && passwordColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][usernameColIdx].toString().trim() === username) {
+            userDbSheet.getRange(i + 1, passwordColIdx + 1).setValue(newPasswordHash);
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 사원을 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 사용자 정보 수정 액션
+    else if (action === 'updateUserInfo') {
+      var userDbSheet = ss.getSheetByName('사용자 계정');
+      if (!userDbSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '사용자 계정 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var oldUsername = payload.oldUsername.toString().trim();
+      var username = payload.username.toString().trim();
+      var name = payload.name.toString().trim();
+      var team = payload.team.toString().trim();
+      var email = payload.email.toString().trim();
+
+      var data = userDbSheet.getDataRange().getValues();
+      var headers = data[0];
+      var usernameColIdx = -1, nameColIdx = -1, teamColIdx = -1, emailColIdx = -1;
+      for (var j = 0; j < headers.length; j++) {
+        var h = headers[j].toString().trim().toLowerCase();
+        if (['사원 id', '사원id', '아이디', 'id', 'username', '사번', '사원번호'].indexOf(h) !== -1) usernameColIdx = j;
+        else if (['이름', 'name', '성명'].indexOf(h) !== -1) nameColIdx = j;
+        else if (['소속팀', '소속 팀', '부서', 'team', 'dept', '소속'].indexOf(h) !== -1) teamColIdx = j;
+        else if (['이메일', 'email', '메일'].indexOf(h) !== -1) emailColIdx = j;
+      }
+
+      // 사원 ID 중복 체크 (다른 사원과 중복)
+      if (usernameColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          var dbUser = data[i][usernameColIdx].toString().trim();
+          if (dbUser !== oldUsername && dbUser === username) {
+            return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '이미 존재하는 사원 ID입니다.'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+
+      if (usernameColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][usernameColIdx].toString().trim() === oldUsername) {
+            if (usernameColIdx !== -1) userDbSheet.getRange(i + 1, usernameColIdx + 1).setValue(username);
+            if (nameColIdx !== -1) userDbSheet.getRange(i + 1, nameColIdx + 1).setValue(name);
+            if (teamColIdx !== -1) userDbSheet.getRange(i + 1, teamColIdx + 1).setValue(team);
+            if (emailColIdx !== -1) userDbSheet.getRange(i + 1, emailColIdx + 1).setValue(email);
+
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 사원을 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
     // --- 기존 액션: 전산 문의 내역 목록 저장 ---
     else if (action === 'saveRequests') {
       var requests = payload.requests || [];

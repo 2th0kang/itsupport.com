@@ -26,6 +26,7 @@
             <li id="nav-item-report" style="display: none;"><a href="#" data-target="page-report"><i class="fa-solid fa-file-invoice"></i> 실적 보고서</a></li>
             <li id="nav-item-provision" style="display: none;"><a href="#" data-target="page-provision"><i class="fa-solid fa-boxes-packing"></i> 지급/설치 내역</a></li>
             <li id="nav-item-admin-list" style="display: none;"><a href="#" data-target="page-admin-list"><i class="fa-solid fa-users-gear"></i> 관리자 목록</a></li>
+            <li id="nav-item-user-list" style="display: none;"><a href="#" data-target="page-user-list"><i class="fa-solid fa-users"></i> 사용자 관리</a></li>
             <li id="nav-item-chatbot" style="display: none;"><a href="#" data-target="page-chatbot"><i class="fa-solid fa-robot"></i> 챗봇 가이드</a></li>
             <li id="nav-item-admin-register" style="display: none;"><a href="#" data-target="page-admin-register"><i class="fa-solid fa-headset"></i> 구두 문의 등록</a></li>
             
@@ -531,6 +532,37 @@
             </div>
         </section>
 
+        <!-- 9. 사용자 계정 관리 페이지 (관리자용) -->
+        <section id="page-user-list" class="page">
+            <header>
+                <h1>사용자 계정 관리</h1>
+                <p>대시보드 시스템을 이용하는 임직원(일반 사용자) 계정 목록을 관리합니다.</p>
+            </header>
+            <div class="card list-card">
+                <div class="card-header" style="justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <h2 style="margin: 0;">등록된 사용자 명단</h2>
+                    <button type="button" id="btnShowAddUserModal" class="btn-submit" style="padding: 8px 16px; margin: 0; width: auto;"><i class="fa-solid fa-user-plus"></i> 신규 사용자 추가</button>
+                </div>
+                <div class="table-responsive">
+                    <table id="userListTable">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>사원 ID</th>
+                                <th>이름</th>
+                                <th>소속 팀</th>
+                                <th>이메일 주소</th>
+                                <th>계정 관리</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 자바스크립트로 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
 
 
     </main>
@@ -647,9 +679,126 @@
     </div>
 </div>
 
+<!-- 사용자 계정 추가 모달 -->
+<div id="userRegModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2>새 사용자 추가</h2>
+            <button class="btn-close" id="btnCloseUserRegModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="userRegForm">
+                <div class="form-group">
+                    <label>사원 ID (로그인 아이디)</label>
+                    <input type="text" id="newUserUsername" required placeholder="영어/숫자 로그인 ID">
+                </div>
+                <div class="form-group">
+                    <label>이름(실명)</label>
+                    <input type="text" id="newUserRealName" required placeholder="예: 홍길동">
+                </div>
+                <div class="form-group">
+                    <label>소속 팀</label>
+                    <select id="newUserTeam" required>
+                        <option value="" disabled selected>선택하세요</option>
+                        <option value="인사총무팀">인사총무팀</option>
+                        <option value="경영기획팀">경영기획팀</option>
+                        <option value="신규사업팀">신규사업팀</option>
+                        <option value="글로벌구매그룹">글로벌구매그룹</option>
+                        <option value="영업전략팀">영업전략팀</option>
+                        <option value="기술혁신팀">기술혁신팀</option>
+                        <option value="기술연구소">기술연구소</option>
+                        <option value="글로벌제조팀">글로벌제조팀</option>
+                        <option value="글로벌CS그룹">글로벌CS그룹</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>새 사용자 비밀번호</label>
+                    <input type="password" id="newUserPw" required placeholder="비밀번호 입력">
+                </div>
+                <div class="form-group">
+                    <label>비밀번호 확인</label>
+                    <input type="password" id="newUserPwConfirm" required placeholder="비밀번호 확인 입력">
+                </div>
+                <div class="form-group">
+                    <label>이메일 주소</label>
+                    <input type="email" id="newUserEmail" required placeholder="예: user1@swei.co.kr">
+                </div>
+                <button type="submit" class="btn-submit">추가하기</button>
+            </form>
+        </div>
+    </div>
+</div>
 
+<!-- 사용자 계정 정보 수정 모달 -->
+<div id="userEditModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2>사용자 정보 수정</h2>
+            <button class="btn-close" id="btnCloseUserEditModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="userEditForm">
+                <input type="hidden" id="editUserOldUsername" value="">
+                <div class="form-group">
+                    <label>사원 ID (로그인 아이디)</label>
+                    <input type="text" id="editUserUsername" required placeholder="영어/숫자 로그인 ID">
+                </div>
+                <div class="form-group">
+                    <label>이름(실명)</label>
+                    <input type="text" id="editUserRealName" required placeholder="예: 홍길동">
+                </div>
+                <div class="form-group">
+                    <label>소속 팀</label>
+                    <select id="editUserTeam" required>
+                        <option value="" disabled selected>선택하세요</option>
+                        <option value="인사총무팀">인사총무팀</option>
+                        <option value="경영기획팀">경영기획팀</option>
+                        <option value="신규사업팀">신규사업팀</option>
+                        <option value="글로벌구매그룹">글로벌구매그룹</option>
+                        <option value="영업전략팀">영업전략팀</option>
+                        <option value="기술혁신팀">기술혁신팀</option>
+                        <option value="기술연구소">기술연구소</option>
+                        <option value="글로벌제조팀">글로벌제조팀</option>
+                        <option value="글로벌CS그룹">글로벌CS그룹</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>이메일 주소</label>
+                    <input type="email" id="editUserEmail" required placeholder="예: user1@swei.co.kr">
+                </div>
+                <button type="submit" class="btn-submit">저장하기</button>
+            </form>
+        </div>
+    </div>
+</div>
 
-
+<!-- 사용자 비밀번호 변경 모달 -->
+<div id="changeUserPasswordModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 350px;">
+        <div class="modal-header">
+            <h2>사용자 비밀번호 변경</h2>
+            <button class="btn-close" id="btnCloseChangeUserPasswordModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="changeUserPasswordForm">
+                <input type="hidden" id="changeUserPasswordUsername" value="">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>변경할 사용자 사원 ID</label>
+                    <input type="text" id="changeUserPasswordTargetId" readonly style="background-color:#f8fafc; font-weight:bold;">
+                </div>
+                <div class="form-group">
+                    <label>새 비밀번호</label>
+                    <input type="password" id="newUserChangePassword" placeholder="새 비밀번호 입력" required>
+                </div>
+                <div class="form-group">
+                    <label>비밀번호 확인</label>
+                    <input type="password" id="newUserChangePasswordConfirm" placeholder="비밀번호 확인 입력" required>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top: 15px;"><i class="fa-solid fa-key"></i> 비밀번호 변경</button>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script src="script.js"></script>
 </body>

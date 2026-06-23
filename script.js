@@ -5,10 +5,10 @@ const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBX1Lzq3s3ue
 
 document.addEventListener('DOMContentLoaded', () => {
     // 권한 및 사용자 정보 상태 관리 (로컬 세션 연동 복구)
-    let userRole = localStorage.getItem('itUserRole') || ''; 
+    let userRole = sessionStorage.getItem('itUserRole') || ''; 
     let isAdmin = (userRole === 'admin');
-    let userLoginId = localStorage.getItem('itUserLoginId') || '';
-    let userPasswordHash = localStorage.getItem('itUserPasswordHash') || '';
+    let userLoginId = sessionStorage.getItem('itUserLoginId') || '';
+    let userPasswordHash = sessionStorage.getItem('itUserPasswordHash') || '';
     
     let requests = [];
     let attachedImages = []; // 첨부된 이미지 데이터 배열 (Base64)
@@ -110,9 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 일반 사용자 로그인 시 입력 폼에 로그인 정보 자동 세팅
     function fillUserInfo() {
         if (userRole === 'user') {
-            const nameVal = localStorage.getItem('itUserName') || '';
-            const teamVal = localStorage.getItem('itUserTeam') || '';
-            const emailVal = localStorage.getItem('itUserEmail') || '';
+            const nameVal = sessionStorage.getItem('itUserName') || '';
+            const teamVal = sessionStorage.getItem('itUserTeam') || '';
+            const emailVal = sessionStorage.getItem('itUserEmail') || '';
             
             const reqNameEl = document.getElementById('reqName');
             const reqTeamEl = document.getElementById('reqTeam');
@@ -171,8 +171,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // 로그인 상태일 때는 사용자 프로필 갱신 및 표시
             if (navUserProfile) {
-                const nameVal = localStorage.getItem('itUserName') || '';
-                const teamVal = localStorage.getItem('itUserTeam') || '';
+                const nameVal = sessionStorage.getItem('itUserName') || '';
+                const teamVal = sessionStorage.getItem('itUserTeam') || '';
                 const roleText = userRole === 'admin' ? '관리자' : '임직원';
                 
                 if (profileName) {
@@ -257,12 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadData();
             }
 
-            localStorage.setItem('activeTab', targetId);
+            sessionStorage.setItem('activeTab', targetId);
         });
     });
 
     // 새로고침 시 권한에 따른 초기 탭 포커싱
-    const activeTab = localStorage.getItem('activeTab');
+    const activeTab = sessionStorage.getItem('activeTab');
     if (!userRole) {
         const loginTabLink = document.querySelector(`.nav-links a[data-target="page-login"]`);
         if (loginTabLink) loginTabLink.click();
@@ -374,12 +374,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 userLoginId = id;
                 userPasswordHash = hashHex;
                 
-                localStorage.setItem('itUserRole', resRole);
-                localStorage.setItem('itUserName', resName || '');
-                localStorage.setItem('itUserTeam', resTeam || '');
-                localStorage.setItem('itUserEmail', resEmail || '');
-                localStorage.setItem('itUserLoginId', id);
-                localStorage.setItem('itUserPasswordHash', hashHex);
+                sessionStorage.setItem('itUserRole', resRole);
+                sessionStorage.setItem('itUserName', resName || '');
+                sessionStorage.setItem('itUserTeam', resTeam || '');
+                sessionStorage.setItem('itUserEmail', resEmail || '');
+                sessionStorage.setItem('itUserLoginId', id);
+                sessionStorage.setItem('itUserPasswordHash', hashHex);
                 
                 alert(`${resName}님, 로그인되었습니다.`);
 
@@ -410,13 +410,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 userPasswordHash = '';
                 requests = [];
                 
-                localStorage.removeItem('itUserRole');
-                localStorage.removeItem('itUserName');
-                localStorage.removeItem('itUserTeam');
-                localStorage.removeItem('itUserEmail');
-                localStorage.removeItem('itUserLoginId');
-                localStorage.removeItem('itUserPasswordHash');
-                localStorage.removeItem('activeTab');
+                sessionStorage.removeItem('itUserRole');
+                sessionStorage.removeItem('itUserName');
+                sessionStorage.removeItem('itUserTeam');
+                sessionStorage.removeItem('itUserEmail');
+                sessionStorage.removeItem('itUserLoginId');
+                sessionStorage.removeItem('itUserPasswordHash');
+                sessionStorage.removeItem('activeTab');
 
                 alert('로그아웃 되었습니다.');
                 updateNavVisibility();
@@ -1658,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${stepHtml}
             </div>
             <!-- 일반 사용자의 경우, 본인이 작성한 글인 경우에만 상세 모달 하단에 수정/삭제 단추 노출 -->
-            ${(userRole === 'user' && req.email === localStorage.getItem('itUserEmail')) ? `
+            ${(userRole === 'user' && req.email === sessionStorage.getItem('itUserEmail')) ? `
             <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
                 <button type="button" onclick="handleUserEditRequest(${req.id})" style="padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 4px; background-color: white; color: var(--text-color); cursor: pointer; font-weight: 500;">수정</button>
                 <button type="button" onclick="handleUserDeleteRequest(${req.id})" style="padding: 8px 16px; border: 1px solid #fecaca; border-radius: 4px; background-color: #fef2f2; color: var(--danger); cursor: pointer; font-weight: 500;">삭제</button>

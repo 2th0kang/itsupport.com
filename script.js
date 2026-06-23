@@ -4,6 +4,9 @@
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxBX1Lzq3s3ue5fmPpwwoLut98wKHN1Af9rcYjw1LdaC7Z6UD51qZwKpqlm06poxFooFg/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // [보안/자가 복구] 기존 localStorage에 남아있던 구버전 로그인 정보 강제 청소 (sessionStorage로 이전 완료됨)
+    ['itUserRole', 'itUserName', 'itUserTeam', 'itUserEmail', 'itUserLoginId', 'itUserPasswordHash'].forEach(key => localStorage.removeItem(key));
+
     // 권한 및 사용자 정보 상태 관리 (로컬 세션 연동 복구)
     let userRole = sessionStorage.getItem('itUserRole') || ''; 
     let isAdmin = (userRole === 'admin');

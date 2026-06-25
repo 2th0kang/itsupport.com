@@ -228,7 +228,6 @@
                                     <option value="고장/오류">고장/오류</option>
                                     <option value="소모품 필요">소모품 필요</option>
                                     <option value="프로그램 설치">프로그램 설치</option>
-                                    <option value="단말기 지급">단말기 지급</option>
                                     <option value="기타">기타</option>
                                 </select>
                             </div>
@@ -244,25 +243,9 @@
                     <!-- 처리 결과 입력 정보 -->
                     <div class="form-group" style="border-top: 2px dashed var(--border-color); padding-top: 20px;">
                         <label><i class="fa-solid fa-list-check"></i> 3. 조치 및 처리 결과</label>
-                        <div class="input-row">
-                            <div class="input-col">
-                                <span class="sub-label">진행 상태</span>
-                                <select id="adminReqStatus" required>
-                                    <option value="완료" selected>완료</option>
-                                    <option value="처리중">처리중</option>
-                                    <option value="접수">접수</option>
-                                    <option value="보류">보류</option>
-                                    <option value="반려">반려</option>
-                                </select>
-                            </div>
-                            <div class="input-col">
-                                <span class="sub-label">처리 완료/반려 사유 (선택)</span>
-                                <input type="text" id="adminReqReason" placeholder="완료/반려 사유 요약">
-                            </div>
-                        </div>
                         <div style="margin-top: 12px;">
                             <span class="sub-label">상세 조치 내역</span>
-                            <textarea id="adminReqResolution" rows="3" placeholder="어떻게 해결했는지 상세 과정을 기록하세요."></textarea>
+                            <textarea id="adminReqResolution" rows="3" placeholder="어떻게 해결했는지 상세 과정을 기록하세요." required></textarea>
                         </div>
                     </div>
 

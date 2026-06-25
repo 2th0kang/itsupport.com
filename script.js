@@ -865,8 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = document.getElementById('adminReqCategory').value;
             const title = document.getElementById('adminReqTitle').value.trim();
             const desc = document.getElementById('adminReqDesc').value.trim();
-            const status = document.getElementById('adminReqStatus').value;
-            const reason = document.getElementById('adminReqReason').value.trim();
+            const status = '완료'; // 구두 등록은 항상 완료 상태
             const resolution = document.getElementById('adminReqResolution').value.trim();
             const password = 'admin_direct';
 
@@ -877,19 +876,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 fileAttachments: [],
                 status,
                 date: new Date().toISOString(),
-                password
+                password,
+                completeReason: '구두 문의 완료' // 구두 문의에 대한 기본 완료 사유 지정
             };
 
             if (resolution) {
                 newRequest.resolution = resolution;
-            }
-
-            if (reason) {
-                if (status === '완료') {
-                    newRequest.completeReason = reason;
-                } else if (status === '반려') {
-                    newRequest.rejectReason = reason;
-                }
             }
 
             requests.push(newRequest);
@@ -1764,9 +1756,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (modalOverlay && modalOverlay.classList.contains('show')) {
-                modalOverlay.classList.remove('show');
-            }
+            // id가 있는 모든 정적 모달 중 현재 열려있는(show 클래스가 있는) 모달을 찾아 닫습니다.
+            document.querySelectorAll('.modal-overlay.show').forEach(modal => {
+                if (modal.id) {
+                    modal.classList.remove('show');
+                }
+            });
         }
     });
 

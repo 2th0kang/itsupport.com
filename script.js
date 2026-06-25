@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             renderTable();
             renderQuickReplies();
+            updateNotifications();
             return;
         }
         showLoading();
@@ -119,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     renderTable(); // 데이터 가져온 후 테이블 다시 그리기
                     renderQuickReplies(); // 퀵 리플라이 버튼 렌더링
+                    updateNotifications(); // 알림 상태 업데이트
                 } else if (data.message === 'Unauthorized') {
                     alert('세션이 만료되었거나 유효하지 않습니다. 다시 로그인해 주세요.');
                     btnLogout.click();
@@ -182,6 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const navUserProfile = document.getElementById('nav-user-profile');
     const profileName = document.getElementById('profileName');
     const profileRole = document.getElementById('profileRole');
+    const navItemNotification = document.getElementById('nav-item-notification');
+    const notificationBadge = document.getElementById('notification-badge');
 
     // 일반 사용자 로그인 시 입력 폼에 로그인 정보 자동 세팅
     function fillUserInfo() {
@@ -241,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navItemChatbotAdmin) navItemChatbotAdmin.style.display = 'none';
             if (navItemChatbot) navItemChatbot.style.display = 'none';
             if (navItemAdminRegister) navItemAdminRegister.style.display = 'none';
+            if (navItemNotification) navItemNotification.style.display = 'none';
             if (navItemLogin) navItemLogin.style.display = 'block';
             if (navItemLogout) navItemLogout.style.display = 'none';
             if (navUserProfile) navUserProfile.style.display = 'none';
@@ -272,6 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (navItemChatbotAdmin) navItemChatbotAdmin.style.display = 'block';
                 if (navItemChatbot) navItemChatbot.style.display = 'block';
                 if (navItemAdminRegister) navItemAdminRegister.style.display = 'block';
+                if (navItemNotification) navItemNotification.style.display = 'none';
                 if (navItemLogin) navItemLogin.style.display = 'none';
                 if (navItemLogout) navItemLogout.style.display = 'block';
                 if (appContainer) appContainer.classList.remove('logged-out');
@@ -286,6 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (navItemChatbotAdmin) navItemChatbotAdmin.style.display = 'none';
                 if (navItemChatbot) navItemChatbot.style.display = 'block';
                 if (navItemAdminRegister) navItemAdminRegister.style.display = 'none';
+                if (navItemNotification) navItemNotification.style.display = 'block';
                 if (navItemLogin) navItemLogin.style.display = 'none';
                 if (navItemLogout) navItemLogout.style.display = 'block';
                 if (appContainer) appContainer.classList.remove('logged-out');
@@ -308,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             } else if (userRole === 'user') {
-                if (!['page-request', 'page-dashboard', 'page-chatbot', 'page-login'].includes(targetId)) {
+                if (!['page-request', 'page-dashboard', 'page-chatbot', 'page-login', 'page-notification'].includes(targetId)) {
                     alert('접근 권한이 없습니다. (일반 사용자 전용 페이지가 아님)');
                     return;
                 }
@@ -330,10 +337,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'page-admin-list') loadAdminList();
             if (targetId === 'page-user-list') loadUserList();
             if (targetId === 'page-chatbot-admin') loadChatbotGuides();
-            if (targetId === 'page-request') fillUserInfo();
+            if (targetId === 'page-request') {
+                fillUserInfo();
+                checkAndRestoreDraft();
+            }
+            if (targetId === 'page-notification') markAllNotificationsAsRead();
 
             // 처리 현황 등에 들어갈 때마다 최신 데이터 다시 받아옴
-            if (['page-dashboard', 'page-report', 'page-provision', 'page-admin-list', 'page-user-list', 'page-chatbot-admin'].includes(targetId)) {
+            if (['page-dashboard', 'page-report', 'page-provision', 'page-admin-list', 'page-user-list', 'page-chatbot-admin', 'page-notification'].includes(targetId)) {
                 loadData();
             }
 
@@ -842,6 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (success) {
                     renderTable();
                     alert('문의가 성공적으로 접수되었습니다.');
+                    clearDraft(); // 임시 작성 초안 삭제
                     requestForm.reset();
                     attachedImages = [];
                     attachedFiles = [];
@@ -915,6 +927,192 @@ document.addEventListener('DOMContentLoaded', () => {
         if(titleEl) titleEl.textContent = '전산 문의 접수';
         const descEl = document.getElementById('pageRequestDesc');
         if(descEl) descEl.textContent = '전산 관련 도움이 필요하신 내용을 입력해 주세요.';
+        clearDraft(); // 편집 취소 시에도 초안 청소
+    }
+
+    // === 임시 초안 저장/복구 비즈니스 로직 ===
+    function clearDraft() {
+        if (userLoginId) {
+            localStorage.removeItem(`draftRequest_${userLoginId}`);
+        }
+    }
+
+    function saveDraft() {
+        if (!userLoginId) return;
+        
+        // 수정 모드인 경우 초안 저장을 건너뜀
+        const editIdEl = document.getElementById('editReqId');
+        if (editIdEl && editIdEl.value) return;
+
+        const categoryEl = document.getElementById('reqCategory');
+        const titleEl = document.getElementById('reqTitle');
+        const descEl = document.getElementById('reqDesc');
+        
+        const category = categoryEl ? categoryEl.value : '';
+        const title = titleEl ? titleEl.value : '';
+        const desc = descEl ? descEl.value : '';
+        
+        if (!category && !title && !desc) {
+            localStorage.removeItem(`draftRequest_${userLoginId}`);
+            return;
+        }
+        
+        localStorage.setItem(`draftRequest_${userLoginId}`, JSON.stringify({ category, title, desc }));
+    }
+
+    function checkAndRestoreDraft() {
+        if (!userLoginId) return;
+        const draft = localStorage.getItem(`draftRequest_${userLoginId}`);
+        if (draft) {
+            try {
+                const data = JSON.parse(draft);
+                const categoryEl = document.getElementById('reqCategory');
+                const titleEl = document.getElementById('reqTitle');
+                const descEl = document.getElementById('reqDesc');
+                
+                const isFormEmpty = (!categoryEl.value && !titleEl.value && !descEl.value);
+                
+                if (isFormEmpty && (data.category || data.title || data.desc)) {
+                    if (confirm('이전에 작성 중이던 임시 저장된 문의 내용이 있습니다. 불러오시겠습니까?')) {
+                        if (categoryEl && data.category) categoryEl.value = data.category;
+                        if (titleEl && data.title) titleEl.value = data.title;
+                        if (descEl && data.desc) descEl.value = data.desc;
+                    } else {
+                        clearDraft();
+                    }
+                }
+            } catch (e) {
+                console.error('초안 복구 실패:', e);
+            }
+        }
+    }
+
+    // 입력 감지 이벤트 바인딩
+    ['reqCategory', 'reqTitle', 'reqDesc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', saveDraft);
+            el.addEventListener('change', saveDraft);
+        }
+    });
+
+    // === 알림 센터 비즈니스 로직 ===
+    window.updateNotifications = function() {
+        if (userRole !== 'user') return;
+        
+        const itUserEmail = sessionStorage.getItem('itUserEmail') || '';
+        if (!itUserEmail) return;
+
+        // 내 문의 내역 필터링
+        const myRequests = requests.filter(r => r.email === itUserEmail);
+
+        let seenStatus = {};
+        try {
+            seenStatus = JSON.parse(localStorage.getItem(`seenRequestStatus_${userLoginId}`)) || {};
+        } catch (e) {
+            seenStatus = {};
+        }
+
+        let newNotificationCount = 0;
+        const listContainer = document.getElementById('notificationList');
+        if (!listContainer) return;
+        
+        listContainer.innerHTML = '';
+
+        // 최신 등록순으로 정렬
+        const sortedMyRequests = [...myRequests].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        sortedMyRequests.forEach(r => {
+            const prevStatus = seenStatus[r.id];
+            
+            // 상태 변화 감지 기준
+            const isChanged = (prevStatus !== undefined && prevStatus !== r.status) || 
+                              (prevStatus === undefined && r.status !== '접수');
+            
+            if (isChanged) {
+                newNotificationCount++;
+            }
+
+            let statusColor = 'var(--primary)';
+            if (r.status === '완료') statusColor = 'var(--secondary)';
+            if (r.status === '반려') statusColor = 'var(--danger)';
+            if (r.status === '보류') statusColor = 'var(--warning)';
+
+            let msg = '';
+            let detail = '';
+            if (r.status === '처리중') {
+                msg = `접수하신 문의 [#${r.id}] 건의 상태가 <strong>[처리중]</strong>으로 변경되었습니다.`;
+            } else if (r.status === '보류') {
+                msg = `접수하신 문의 [#${r.id}] 건이 <strong>[보류]</strong> 상태로 전환되었습니다.`;
+            } else if (r.status === '완료') {
+                msg = `접수하신 문의 [#${r.id}] 건이 해결되어 <strong>[완료]</strong> 처리되었습니다.`;
+                if (r.completeReason) detail = `처리 내역: ${r.completeReason}`;
+            } else if (r.status === '반려') {
+                msg = `접수하신 문의 [#${r.id}] 건이 <strong>[반려]</strong> 처리되었습니다.`;
+                if (r.rejectReason) detail = `반려 사유: <span style="color:var(--danger);">${r.rejectReason}</span>`;
+            } else {
+                msg = `접수하신 문의 [#${r.id}] 건이 <strong>[접수]</strong> 완료되었습니다.`;
+            }
+
+            const item = document.createElement('div');
+            item.style.cssText = 'padding: 14px 18px; border: 1px solid var(--border-color); border-radius: 8px; background-color: ' + (isChanged ? '#f0fdf4' : 'white') + '; display: flex; flex-direction: column; gap: 6px; position: relative; box-shadow: var(--shadow-sm);';
+            
+            const dateStr = new Date(r.date).toLocaleDateString('ko-KR', {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'});
+            
+            item.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem; color:var(--text-muted);">${dateStr} | 문의 번호 #${r.id}</span>
+                    <span class="tag" style="background-color:${statusColor}15; color:${statusColor}; font-weight:600; padding:2px 8px; border-radius:4px; font-size:0.8rem;">${r.status}</span>
+                </div>
+                <div style="font-size:0.95rem; color:var(--text-main); margin-top:2px;">
+                    <strong>[${r.category}] ${r.title}</strong>
+                </div>
+                <div style="font-size:0.88rem; color:var(--text-color); margin-top:2px;">
+                    ${msg}
+                </div>
+                ${detail ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px; padding:8px 12px; background-color:#f8fafc; border-radius:6px; border-left: 3px solid ${statusColor}; font-weight:500;">${detail}</div>` : ''}
+                ${isChanged ? `<span style="position:absolute; top:12px; right:12px; width:8px; height:8px; background-color:#ef4444; border-radius:50%;" title="새 알림"></span>` : ''}
+            `;
+            listContainer.appendChild(item);
+        });
+
+        if (myRequests.length === 0) {
+            listContainer.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:40px 10px;">접수한 문의가 없어 수신된 알림이 없습니다.</div>`;
+        }
+
+        // 알림 배지 숫자 노출 제어
+        if (newNotificationCount > 0) {
+            if (notificationBadge) {
+                notificationBadge.textContent = newNotificationCount;
+                notificationBadge.style.display = 'inline-block';
+            }
+        } else {
+            if (notificationBadge) {
+                notificationBadge.style.display = 'none';
+            }
+        }
+    };
+
+    window.markAllNotificationsAsRead = function() {
+        if (userRole !== 'user' || !userLoginId) return;
+        
+        const itUserEmail = sessionStorage.getItem('itUserEmail') || '';
+        if (!itUserEmail) return;
+
+        const myRequests = requests.filter(r => r.email === itUserEmail);
+        
+        const seenStatus = {};
+        myRequests.forEach(r => {
+            seenStatus[r.id] = r.status;
+        });
+
+        localStorage.setItem(`seenRequestStatus_${userLoginId}`, JSON.stringify(seenStatus));
+        updateNotifications();
+    };
+
+    const btnMarkAllRead = document.getElementById('btnMarkAllRead');
+    if (btnMarkAllRead) {
+        btnMarkAllRead.addEventListener('click', markAllNotificationsAsRead);
     }
 
     const btnCancelEdit = document.getElementById('btnCancelEdit');
@@ -1778,7 +1976,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // 수정 모드 진입
         document.querySelector('.nav-links a[data-target="page-request"]').click();
         document.getElementById('pageRequestTitle').textContent = '전산 문의 수정';
-        document.getElementById('pageRequestDesc').textContent = '등록하신 문의 내용을 수정합니다.';
+        const descEl = document.getElementById('pageRequestDesc');
+        if (descEl) {
+            descEl.textContent = '등록하신 문의 내용을 수정합니다.';
+        }
         document.getElementById('editReqId').value = req.id;
         document.getElementById('reqName').value = req.name;
         
@@ -2217,7 +2418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 하단 추가 액션 제공
         html += `
             <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="#" class="chat-action-link" id="chatLinkToRequest"><i class="fa-solid fa-circle-question"></i> 해결되지 않음 (문의 접수하기)</a>
+                <a href="#" class="chat-action-link" id="chatLinkToRequest" data-guide-title="${data.title || ''}" data-guide-key="${data.key || ''}"><i class="fa-solid fa-circle-question"></i> 해결되지 않음 (문의 접수하기)</a>
             </div>
         `;
         return html;
@@ -2342,7 +2543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatbotGuides.forEach(g => {
             htmlList += `<a href="#" class="chat-action-link" onclick="triggerQuickReply('${g.key}'); return false;">${g.title} 보기</a>`;
         });
-        htmlList += `<a href="#" class="chat-action-link" id="chatLinkToRequest"><i class="fa-solid fa-paper-plane"></i> IT 지원팀에 정식 문의 접수하기</a></div>`;
+        htmlList += `<a href="#" class="chat-action-link" id="chatLinkToRequest" data-query="${inputText || ''}"><i class="fa-solid fa-paper-plane"></i> IT 지원팀에 정식 문의 접수하기</a></div>`;
 
         return `
             <p>죄송합니다. 😢 입력하신 내용(<strong>"${inputText}"</strong>)에 맞는 자가 해결법을 찾지 못했습니다.</p>
@@ -2399,10 +2600,42 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!link) return;
             e.preventDefault();
             
+            // 챗봇에서 보던 맥락 정보 수집
+            const guideTitle = link.getAttribute('data-guide-title');
+            const guideKey = link.getAttribute('data-guide-key');
+            const queryText = link.getAttribute('data-query');
+            
             // 문의 접수 탭으로 이동시킴
             const requestTab = document.querySelector('.nav-links a[data-target="page-request"]');
             if (requestTab) {
                 requestTab.click();
+                
+                // 폼 입력 요소 가져오기
+                const reqTitleEl = document.getElementById('reqTitle');
+                const reqDescEl = document.getElementById('reqDesc');
+                const reqCategoryEl = document.getElementById('reqCategory');
+                
+                if (guideTitle) {
+                    if (reqTitleEl) reqTitleEl.value = `[자가조치 실패] ${guideTitle}`;
+                    if (reqDescEl) {
+                        reqDescEl.value = `챗봇 자가조치 가이드 ("${guideTitle}")에 기재된 조치 단계를 시도해 보았으나 해결되지 않아 문의 접수합니다.\n\n[증상 및 시도한 조치 내용]:\n- `;
+                    }
+                    if (reqCategoryEl) {
+                        if (guideKey === 'share') {
+                            reqCategoryEl.value = '권한/계정';
+                        } else {
+                            reqCategoryEl.value = '고장/오류';
+                        }
+                    }
+                } else if (queryText) {
+                    if (reqTitleEl) reqTitleEl.value = `[전산 문의] ${queryText} 관련`;
+                    if (reqDescEl) {
+                        reqDescEl.value = `챗봇에 "${queryText}" 검색어로 질의하였으나 자가 해결 가이드가 없거나 해결되지 않아 문의 드립니다.\n\n[상세 내용]:\n- `;
+                    }
+                    if (reqCategoryEl) {
+                        reqCategoryEl.value = '고장/오류';
+                    }
+                }
             } else {
                 alert('문의 접수 탭에 접근할 수 없습니다.');
             }

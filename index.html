@@ -24,6 +24,7 @@
             <li id="nav-item-chatbot" style="display: none;"><a href="#" data-target="page-chatbot" class="active"><i class="fa-solid fa-robot"></i> 전산 챗봇</a></li>
             <li id="nav-item-request" style="display: none;"><a href="#" data-target="page-request"><i class="fa-solid fa-pen-to-square"></i> 문의 접수</a></li>
             <li id="nav-item-dashboard" style="display: none;"><a href="#" data-target="page-dashboard"><i class="fa-solid fa-chart-pie"></i> 처리 현황</a></li>
+            <li id="nav-item-notification" style="display: none;"><a href="#" data-target="page-notification" style="position: relative;"><i class="fa-solid fa-bell"></i> 알림 센터 <span id="notification-badge" class="badge" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background-color: #ef4444; color: white; border-radius: 10px; padding: 2px 6px; font-size: 0.7rem; font-weight: bold; line-height: 1;">0</span></a></li>
             <li id="nav-item-report" style="display: none;"><a href="#" data-target="page-report"><i class="fa-solid fa-file-invoice"></i> 실적 보고서</a></li>
             <li id="nav-item-provision" style="display: none;"><a href="#" data-target="page-provision"><i class="fa-solid fa-boxes-packing"></i> 지급/설치 내역</a></li>
             <li id="nav-item-admin-list" style="display: none;"><a href="#" data-target="page-admin-list"><i class="fa-solid fa-users-gear"></i> 관리자 목록</a></li>
@@ -50,8 +51,9 @@
 
         <!-- 1. 문의 접수 페이지 -->
         <section id="page-request" class="page active">
-            <header style="margin-bottom: 15px;">
-                <h1 id="pageRequestTitle" style="margin-bottom: 0;">전산 문의 접수</h1>
+            <header>
+                <h1 id="pageRequestTitle">전산 문의 접수</h1>
+                <p id="pageRequestDesc">전산 관련 도움이 필요하신 내용을 입력해 주세요.</p>
             </header>
             <div class="card request-form-card">
                 <form id="requestForm">
@@ -574,6 +576,23 @@
                             <!-- 자바스크립트로 렌더링 -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 11. 알림 페이지 -->
+        <section id="page-notification" class="page">
+            <header>
+                <h1>알림 센터</h1>
+                <p>회원님이 접수하신 문의의 처리 상태 변경 알림을 확인하실 수 있습니다.</p>
+            </header>
+            <div class="card notification-card" style="padding: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; font-size: 1.2rem;">최신 알림 내역</h2>
+                    <button type="button" id="btnMarkAllRead" style="background-color: var(--primary-light); color: var(--primary); border: none; border-radius: 4px; padding: 6px 12px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">모두 읽음으로 표시</button>
+                </div>
+                <div id="notificationList" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- 알림 목록이 동적으로 들어갑니다 -->
                 </div>
             </div>
         </section>

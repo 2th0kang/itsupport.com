@@ -144,13 +144,64 @@ function getOrInitializeSheets(ss) {
   if (!hasTestuser) {
     userDbSheet.appendRow(['testuser', '테스트유저', '전산팀', 'testuser@swei.co.kr', '1234']);
   }
+
+  // 6. 챗봇 가이드 시트 확보 및 초기화 (동적 관리 데이터베이스 구축)
+  var chatbotSheet = ss.getSheetByName('챗봇 가이드');
+  if (!chatbotSheet) {
+    chatbotSheet = ss.insertSheet('챗봇 가이드');
+    chatbotSheet.appendRow(['id', 'key', 'title', 'steps', 'tip', 'downloads', 'date']);
+    
+    // 초기 4개 샘플 데이터 구성 (기존 monitor, printer, slow, share 도움말)
+    var initialGuides = [
+      [
+        1, 
+        'monitor', 
+        '🖥️ 모니터 화면이 안 나옴 해결법', 
+        '전원 케이블 확인: 모니터 뒷면과 콘센트에 전원선이 단단히 꽂혀 있는지 확인하고, 모니터 전원 버튼을 눌러보세요. (대기 전원 램프 불빛 확인)\n케이블 재연결: PC 본체와 모니터를 연결하는 영상 케이블(HDMI, DP 등)을 뺐다가 먼지를 턴 후 다시 끝까지 밀어 넣어 연결하세요. 듀얼 모니터인 경우 케이블 포트를 서로 바꾸어 꽂아 봅니다.\n입력 소스 설정 확인: 모니터 하단/뒷면의 메뉴 버튼을 눌러 입력 소스(Input Source)가 올바른 포트(HDMI, DP 등)로 설정되어 있는지 확인하세요.\n본체 전원 재부팅: 본체 전원 버튼을 5초 이상 길게 눌러 강제 종료한 후, 1분 뒤에 다시 켜서 부팅 화면이 올라오는지 확인합니다.',
+        '모니터 자체 화면에 \'케이블 연결 상태 확인\' 혹은 \'신호 없음(No Signal)\' 문구가 뜬다면 케이블 접촉 불량이나 본체 그래픽 카드 이상일 가능성이 높습니다.',
+        '[]',
+        new Date()
+      ],
+      [
+        2,
+        'printer',
+        '🖨️ 프린터/인쇄 오류 해결법',
+        '기본 프린터 확인: [제어판] -> [장치 및 프린터]에서 사용하고자 하는 사내 복합기(예: 3층 신도리코)가 \'기본 프린터\'로 체크되어 있는지 확인하세요.\n인쇄 대기열 삭제: 인쇄가 안 되어 여러 번 누른 경우 대기열에 문서가 꼬여서 안 나올 수 있습니다. 프린터 아이콘을 더블 클릭한 후 [모든 문서 취소]를 누르고 재인쇄해 보세요.\n프린터 스풀러(Spooler) 재시작: 아래 제공된 자동 해결 도구(배치파일)를 사용하여 서비스를 재시작할 수 있습니다.',
+        '복합기 본체 액정 화면에 \'용지 걸림\'이나 \'토너 부족\' 에러 메시지가 표시 중인지 먼저 체크해 보시기 바랍니다.',
+        '[{"title":"프린터 스풀러 재시작","text":"🛠️ 프린터 스풀러 재시작 배치파일 다운로드","file":"downloads/restart_spooler.bat","guide":"다운로드된 파일을 실행하기 전에 반드시 마우스 우클릭 -> 관리자 권한으로 실행을 눌러주셔야 인쇄 서비스가 정상 재시작됩니다."}]',
+        new Date()
+      ],
+      [
+        3,
+        'slow',
+        '⚡ PC 속도 저하 및 프로그램 오류 해결법',
+        '불필요한 프로세스 종료: [작업 관리자 (Ctrl+Shift+Esc)]를 열고 CPU 또는 메모리 점유율이 90% 이상인 사용하지 않는 프로그램을 찾아 [작업 끝내기]를 실행하세요.\n디스크 공간 확보: C 드라이브 용량이 부족하면 속도가 극도로 느려집니다. 다운로드 폴더 및 휴지통을 비우고 불필요한 대용량 파일을 D 드라이브로 백업하세요.',
+        'PC를 수 주간 끄지 않고 대기 모드로만 사용하면 메모리 누수가 발생하므로, 최소 1주일에 2~3회 이상은 PC 종료 및 다시 시작을 권장합니다.',
+        '[]',
+        new Date()
+      ],
+      [
+        4,
+        'share',
+        '📁 공유폴더 접속 오류 해결법',
+        '네트워크 경로 확인: 접속하려는 공유폴더 주소(예: \\\\192.168.1.10)의 스펠링과 백슬래시(\\\\) 입력 방향이 올바른지 확인해 주세요.\n윈도우 자격증명 초기화: 사내 메일 패스워드 등을 바꾼 후 이전 세션이 꼬여서 접근이 안 될 수 있습니다. 아래 제공된 자동 초기화 도구(배치파일)를 실행해 연결을 강제 초기화한 후 PC를 재부팅하고 재접속해 보세요.\n윈도우 11 특정 서버 접속 실패(11번 스캔팩스 / 39번 소프트웨어 점검): 윈도우 11의 최신 보안 정책으로 인해 일부 사내 공유폴더 서버에 접근할 수 없을 수 있습니다. 아래 제공된 \'윈도우 11 공유폴더 접속 복구 도구\'를 실행하여 보안 설정을 변경하고 PC를 재부팅해 보세요.',
+        '특정 폴더에만 접속 권한 없음 에러가 발생한다면, 폴더 소유자나 전산 부서에 계정 권한이 정상 등록되어 있는지 확인을 거쳐야 합니다.',
+        '[{"title":"공유폴더 자격증명 캐시 제거 (공통)","text":"🛠️ 윈도우 자격증명 초기화 배치파일 다운로드","file":"downloads/reset_share_credentials.bat","guide":"다운로드된 파일을 더블 클릭하여 실행하면 꼬여 있던 모든 공유 폴더 가상 연결이 초기화됩니다. 실행 완료 후 반드시 PC를 재부팅한 뒤 재접속하여 사내 로그인 아이디와 패스워드를 입력해 보세요."},{"title":"윈도우 11 전용 접속 오류 복구 (11번 스캔팩스 / 39번 소프트웨어 점검 서버용)","text":"🛠️ 윈도우 11 공유폴더 접속 복구 배치파일 다운로드","file":"downloads/fix_win11_share_error.bat","guide":"다운로드된 파일을 실행하면 윈도우 11에서 11번(스캔팩스) 및 39번(소프트웨어 점검) 서버로의 게스트 로그인 허용 및 보안 서명 요구 해제 설구를 복구합니다. 실행 완료 후 반드시 PC를 재부팅해 주세요."}]',
+        new Date()
+      ]
+    ];
+    for (var i = 0; i < initialGuides.length; i++) {
+      chatbotSheet.appendRow(initialGuides[i]);
+    }
+  }
   
   return {
     requests: requestSheet,
     report: reportSheet,
     provision: provisionSheet,
     admin: adminSheet,
-    userDb: userDbSheet
+    userDb: userDbSheet,
+    chatbot: chatbotSheet
   };
 }
 
@@ -367,10 +418,38 @@ function doGet(e) {
       }
       return items;
     }
+
+    function parseChatbotGuides(sheet) {
+      var data = sheet.getDataRange().getValues();
+      var items = [];
+      if (data.length > 1) {
+        var headers = data[0];
+        for (var i = 1; i < data.length; i++) {
+          var row = data[i];
+          var obj = {};
+          for (var j = 0; j < headers.length; j++) {
+            var key = headers[j];
+            var val = row[j];
+            if (key === 'steps') {
+              obj[key] = val ? val.split('\n') : [];
+            } else if (key === 'downloads') {
+              try { obj[key] = val ? JSON.parse(val) : []; } catch(err) { obj[key] = []; }
+            } else if (key === 'id') {
+              obj[key] = Number(val);
+            } else {
+              obj[key] = val;
+            }
+          }
+          items.push(obj);
+        }
+      }
+      return items;
+    }
     
     var result = {
       status: 'success',
-      requests: parseSheetData(sheets.requests)
+      requests: parseSheetData(sheets.requests),
+      chatbotGuides: parseChatbotGuides(sheets.chatbot)
     };
     
     return ContentService.createTextOutput(JSON.stringify(result))
@@ -1002,6 +1081,101 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
+    // 7. 챗봇 가이드 저장/수정 액션
+    else if (action === 'saveChatbotGuide') {
+      var chatbotSheet = ss.getSheetByName('챗봇 가이드');
+      if (!chatbotSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '챗봇 가이드 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var key = payload.key.toString().trim();
+      var title = payload.title.toString().trim();
+      var steps = payload.steps ? payload.steps.join('\n') : '';
+      var tip = payload.tip ? payload.tip.toString().trim() : '';
+      var downloads = payload.downloads ? JSON.stringify(payload.downloads) : '[]';
+      
+      var data = chatbotSheet.getDataRange().getValues();
+      var headers = data[0];
+      var keyColIdx = headers.indexOf('key');
+      
+      var targetRowIdx = -1;
+      if (keyColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][keyColIdx].toString().trim() === key) {
+            targetRowIdx = i + 1; // 1-indexed row number
+            break;
+          }
+        }
+      }
+      
+      if (targetRowIdx !== -1) {
+        // 기존 가이드 업데이트
+        for (var j = 0; j < headers.length; j++) {
+          var col = headers[j];
+          if (col === 'title') chatbotSheet.getRange(targetRowIdx, j + 1).setValue(title);
+          else if (col === 'steps') chatbotSheet.getRange(targetRowIdx, j + 1).setValue(steps);
+          else if (col === 'tip') chatbotSheet.getRange(targetRowIdx, j + 1).setValue(tip);
+          else if (col === 'downloads') chatbotSheet.getRange(targetRowIdx, j + 1).setValue(downloads);
+          else if (col === 'date') chatbotSheet.getRange(targetRowIdx, j + 1).setValue(new Date());
+        }
+      } else {
+        // 신규 가이드 등록
+        var maxId = 0;
+        var idColIdx = headers.indexOf('id');
+        if (idColIdx !== -1) {
+          for (var i = 1; i < data.length; i++) {
+            var currentId = Number(data[i][idColIdx]);
+            if (!isNaN(currentId) && currentId > maxId) {
+              maxId = currentId;
+            }
+          }
+        }
+        var newId = maxId + 1;
+        
+        var newRow = [];
+        for (var j = 0; j < headers.length; j++) {
+          var col = headers[j];
+          if (col === 'id') newRow.push(newId);
+          else if (col === 'key') newRow.push(key);
+          else if (col === 'title') newRow.push(title);
+          else if (col === 'steps') newRow.push(steps);
+          else if (col === 'tip') newRow.push(tip);
+          else if (col === 'downloads') newRow.push(downloads);
+          else if (col === 'date') newRow.push(new Date());
+          else newRow.push('');
+        }
+        chatbotSheet.appendRow(newRow);
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 8. 챗봇 가이드 삭제 액션
+    else if (action === 'deleteChatbotGuide') {
+      var chatbotSheet = ss.getSheetByName('챗봇 가이드');
+      if (!chatbotSheet) {
+        return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '챗봇 가이드 시트가 존재하지 않습니다.'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var key = payload.key.toString().trim();
+      
+      var data = chatbotSheet.getDataRange().getValues();
+      var headers = data[0];
+      var keyColIdx = headers.indexOf('key');
+      
+      if (keyColIdx !== -1) {
+        for (var i = 1; i < data.length; i++) {
+          if (data[i][keyColIdx].toString().trim() === key) {
+            chatbotSheet.deleteRow(i + 1);
+            return ContentService.createTextOutput(JSON.stringify({status: 'success'}))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({status: 'error', message: '해당 키를 가진 가이드를 찾을 수 없습니다.'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
     else {
       return ContentService.createTextOutput(JSON.stringify({status: 'error', message: 'Unknown action: ' + action}))
